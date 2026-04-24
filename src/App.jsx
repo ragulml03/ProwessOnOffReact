@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { withLDProvider } from "launchdarkly-react-client-sdk";
-import { Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes } from "react-router-dom";
 import AppShell from "./layouts/AppShell";
 import { getLaunchDarklyConfig } from "./launchDarkly";
 import CareersPage from "./pages/CareersPage";
@@ -18,6 +18,7 @@ function App() {
   return (
     <AppShell>
       <Routes>
+        <Route path="/" element={<Navigate to="/app/careers" replace />} />
         <Route path="/app/careers" element={<CareersPage siteData={siteData} />} />
         <Route path="/app/profile" element={<ProfilePage siteData={siteData} />} />
         <Route path="*" element={<NotFoundPage />} />
