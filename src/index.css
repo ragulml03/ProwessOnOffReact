@@ -1,0 +1,12 @@
+@import "tailwindcss";
+
+:root {
+  --deep-space-blue: #001e41;
+  --electric-blue: #405bff;
+}
+
+body {
+  margin: 0;
+  background: var(--deep-space-blue);
+  color: #ffffff;
+}
