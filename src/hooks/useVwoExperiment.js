@@ -30,8 +30,8 @@ export function useVwoExperiment(campaignId) {
 
   useEffect(() => {
     if (!campaignId) {
-      setVariationId(1);
-      setIsLoading(false);
+      // Defer setState out of the synchronous effect body (React 19 lint rule).
+      queueMicrotask(() => { setVariationId(1); setIsLoading(false); });
       return;
     }
 
