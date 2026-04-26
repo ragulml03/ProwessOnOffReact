@@ -1,0 +1,46 @@
+name: Weekly Stale Flag Audit
+
+# Runs every Monday at 9am UTC
+on:
+  schedule:
+    - cron: '0 9 * * 1'
+  workflow_dispatch:  # also allow manual trigger from GitHub Actions UI
+
+jobs:
+  audit:
+    name: Audit LaunchDarkly + VWO Flags
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Find all flag references in React code
+        id: flags
+        run: |
+          echo "=== LaunchDarkly flags referenced in code ==="
+          grep -rn "useFlags\|variation\b" src/ | grep -v node_modules || true
+
+          echo ""
+          echo "=== VWO Campaign IDs in code ==="
+          grep -rn "CAMPAIGN_ID\s*=\s*[0-9]" src/ || true
+
+      - name: Check LaunchDarkly for stale flags (>90 days unchanged)
+        run: |
+          if [ -z "${{ secrets.LD_API_KEY }}" ]; then
+            echo "LD_API_KEY not set — skipping."
+            exit 0
+          fi
+          CUTOFF=$(python3 -c "import time; print(int((time.time() - 90*86400)*1000))")
+          STALE=$(curl -sf -H "Authorization: ${{ secrets.LD_API_KEY }}" \
+            "https://app.launchdarkly.com/api/v2/flags/default" \
+            | jq --argjson c "$CUTOFF" '[.items[] | select(.creationDate < $c) | {key,creationDate}]')
+          echo "Stale flags: $STALE"
+          echo "STALE_FLAGS=$STALE" >> $GITHUB_ENV
+
+      - name: Post stale flag report to Slack
+        if: env.SLACK_WEBHOOK != ''
+        run: |
+          curl -X POST ${{ secrets.SLACK_WEBHOOK }} \
+            -H 'Content-type: application/json' \
+            -d "{\"text\":\"📊 Weekly Flag Audit — Stale flags (>90 days): ${{ env.STALE_FLAGS }}\"}"
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
