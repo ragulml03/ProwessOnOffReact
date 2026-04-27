@@ -128,11 +128,11 @@ export default function ProfilePage({ siteData }) {
   const user = siteData?.profile?.user ?? {};
   const stats = Array.isArray(siteData?.profile?.stats) ? siteData.profile.stats : [];
   const flags = Array.isArray(siteData?.profile?.recentFlags) ? siteData.profile.recentFlags : [];
-  const { reactMigrationTest } = useFlags();
+  useFlags();
   const ldClient = useLDClient();
 
   // ── VWO Test 2: Profile stat card layout ──────────────────────────────────
-  const { variationId: profileVariationId, isLoading: profileLoading } = useVwoExperiment(VWO_PROFILE_CAMPAIGN_ID);
+  const { variationId: profileVariationId } = useVwoExperiment(VWO_PROFILE_CAMPAIGN_ID);
   const isProfileChallenger = profileVariationId === 2;
 
   const [activeAction, setActiveAction] = useState(null);
@@ -166,23 +166,6 @@ export default function ProfilePage({ siteData }) {
     <section className="pt-12 pb-28 px-6">
       <div className="mx-auto max-w-5xl">
         <ReactBadge />
-
-        {reactMigrationTest && (
-          <div className="mb-4 flex items-center gap-3 flex-wrap">
-            <span className="text-xs tracking-wider uppercase text-emerald-300">
-              Live Experiment Variant Active
-            </span>
-            {!profileLoading && (
-              <span className={`text-xs font-semibold px-2.5 py-1 rounded-full border
-                ${isProfileChallenger
-                  ? "bg-emerald-400/10 border-emerald-400/30 text-emerald-300"
-                  : "bg-[#405BFF]/10 border-[#405BFF]/30 text-[#405BFF]"
-                }`}>
-                Profile Test — VWO Variation {profileVariationId} ({isProfileChallenger ? "Challenger" : "Control"})
-              </span>
-            )}
-          </div>
-        )}
 
         {/* User header */}
         <div className="flex flex-col md:flex-row items-start md:items-center gap-6 mb-10">
