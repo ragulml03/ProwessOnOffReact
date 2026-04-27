@@ -74,7 +74,7 @@ async function getVwoSettings() {
         setTimeout(() => reject(new Error("timeout")), FETCH_TIMEOUT)
       ),
     ]);
-    if (res?.ok) return res.json();
+    if (res?.ok) return await res.json();
   } catch {
     // VWO CDN slow or down — fail gracefully, client-side VWO takes over
   }
