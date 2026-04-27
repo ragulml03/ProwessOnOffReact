@@ -1,7 +1,13 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useFlags, useLDClient } from "launchdarkly-react-client-sdk";
 import ReactBadge from "../components/ReactBadge";
 import { useVwoExperiment, trackVwoGoal } from "../hooks/useVwoExperiment";
+import {
+  trackVwoVariationAssigned,
+  trackVwoGoalConverted,
+  trackLdConversion,
+  trackApplyClick,
+} from "../analytics/pinpoint.js";
 
 const VWO_CAREERS_CAMPAIGN_ID = 4;
 // Internal campaign goal sequence ID (first goal = 1). NOT the Data360 metricId (2424005).
@@ -204,23 +210,30 @@ export default function CareersPage({ siteData }) {
 
   const [appliedJob, setAppliedJob] = useState(null);
 
+  // Event 3 — fire once when VWO resolves which variation this user is in
+  useEffect(() => {
+    if (variationId == null) return;
+    const variationLabel = variationId === 2 ? "Challenger (Variation 2)" : "Control (Variation 1)";
+    trackVwoVariationAssigned(VWO_CAREERS_CAMPAIGN_ID, variationId, variationLabel, "careers");
+  }, [variationId]);
+
   const trackApply = (job) => {
     const variationLabel = isChallenger ? "Challenger (Variation 2)" : "Control (Variation 1)";
+    const platform = window.AB_TEST_DATA?.platform_version ?? "react_modern";
     console.log(`[A/B] Apply clicked — ${variationLabel} — Job: ${job?.title}`);
 
     // 1. VWO goal conversion
     trackVwoGoal(VWO_CAREERS_CAMPAIGN_ID, VWO_APPLY_GOAL_ID, VWO_APPLY_GOAL_IDENTIFIER);
-    console.log(`[VWO] track.goals fired — campaign ${VWO_CAREERS_CAMPAIGN_ID}, goal ${VWO_APPLY_GOAL_ID}`);
+    // Event 4 — mirror VWO goal to Pinpoint
+    trackVwoGoalConverted(VWO_CAREERS_CAMPAIGN_ID, VWO_APPLY_GOAL_ID, variationLabel, { job_title: job?.title ?? "" });
 
-    // 2. LaunchDarkly metric (client-side SDK — no .NET backend required)
-    ldClient?.track("conversion", {
-      source: "react-careers",
-      action: "apply-click",
-      vwoVariation: variationId,
-      variationLabel,
-      jobTitle: job?.title,
-    });
-    console.log(`[LaunchDarkly] conversion event sent — variation ${variationId}`);
+    // 2. LaunchDarkly metric
+    ldClient?.track("conversion", { source: "react-careers", action: "apply-click", vwoVariation: variationId, variationLabel, jobTitle: job?.title });
+    // Event 6 — mirror LD conversion to Pinpoint
+    trackLdConversion("conversion", { source: "react-careers", variation_label: variationLabel });
+
+    // Event 7 — apply_click with full context
+    trackApplyClick(job?.title, variationLabel, platform);
 
     setAppliedJob(job);
   };

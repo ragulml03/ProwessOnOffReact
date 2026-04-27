@@ -4,6 +4,7 @@ import { BrowserRouter } from "react-router-dom";
 import { onCLS, onFCP, onINP, onLCP, onTTFB } from "web-vitals";
 import App from "./App.jsx";
 import "./index.css";
+import { trackWebVital } from "./analytics/pinpoint.js";
 
 // ─── Core Web Vitals — report to GA4 + our own API ───────────────────────────
 // Metrics: LCP (load speed), CLS (layout stability), INP (responsiveness),
@@ -25,6 +26,9 @@ function reportVital({ name, value, id, rating }) {
   // 2. Also POST to .NET backend so metrics appear in server logs / Datadog
   const platform = window.AB_TEST_DATA?.platform_version ?? "react_modern";
   navigator.sendBeacon?.("/api/track-vitals", JSON.stringify({ name, value: Math.round(value), rating, platform }));
+
+  // 3. AWS Pinpoint — core_web_vital event
+  trackWebVital(name, value, rating, platform);
 }
 
 onCLS(reportVital);

@@ -1,8 +1,15 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useFlags, useLDClient } from "launchdarkly-react-client-sdk";
 import ReactBadge from "../components/ReactBadge";
 import { useVwoExperiment, trackVwoGoal } from "../hooks/useVwoExperiment";
+import {
+  trackVwoVariationAssigned,
+  trackVwoGoalConverted,
+  trackLdConversion,
+  trackLdFlagEvaluated,
+  trackProfileAction as trackProfileActionPinpoint,
+} from "../analytics/pinpoint.js";
 
 // ─── VWO Campaign 5: Profile Stats Card Layout Test ──────────────────────────
 // Create this campaign in VWO Dashboard → Campaigns → New A/B Test
@@ -137,19 +144,34 @@ export default function ProfilePage({ siteData }) {
 
   const [activeAction, setActiveAction] = useState(null);
 
+  // Event 3 — fire once when VWO resolves variation for this user
+  useEffect(() => {
+    if (profileVariationId == null) return;
+    const variationLabel = profileVariationId === 2 ? "Challenger (Variation 2)" : "Control (Variation 1)";
+    trackVwoVariationAssigned(VWO_PROFILE_CAMPAIGN_ID, profileVariationId, variationLabel, "profile");
+  }, [profileVariationId]);
+
+  // Event 5 — fire once when LD flags are available (reactMigrationTest flag state)
+  useEffect(() => {
+    const userId = window.AB_TEST_DATA?.user_id ?? "";
+    trackLdFlagEvaluated("reactMigrationTest", true, userId);
+  }, []);
+
   const trackProfileAction = (action) => {
     const variationLabel = isProfileChallenger ? "Challenger (Variation 2)" : "Control (Variation 1)";
+    const platform = window.AB_TEST_DATA?.platform_version ?? "react_modern";
     console.log(`[A/B Test 2 — Profile] ${action} clicked — ${variationLabel}`);
 
+    // Event 4 — VWO goal + Pinpoint mirror
     trackVwoGoal(VWO_PROFILE_CAMPAIGN_ID, VWO_PROFILE_GOAL_ID, VWO_PROFILE_GOAL_IDENTIFIER);
+    trackVwoGoalConverted(VWO_PROFILE_CAMPAIGN_ID, VWO_PROFILE_GOAL_ID, variationLabel, { action });
 
-    ldClient?.track("profile-action", {
-      source: "react-profile",
-      action,
-      vwoVariation: profileVariationId,
-      variationLabel,
-    });
-    console.log(`[LaunchDarkly] profile-action event sent — variation ${profileVariationId}`);
+    // Event 6 — LD conversion + Pinpoint mirror
+    ldClient?.track("profile-action", { source: "react-profile", action, vwoVariation: profileVariationId, variationLabel });
+    trackLdConversion("profile-action", { source: "react-profile", variation_label: variationLabel });
+
+    // Event 8 — profile_action with full context
+    trackProfileActionPinpoint(action, variationLabel, platform);
 
     setActiveAction(action);
   };
