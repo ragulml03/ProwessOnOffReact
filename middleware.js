@@ -68,8 +68,7 @@ function getBucketValue(userId) {
 async function getVwoSettings() {
   try {
     const res = await Promise.race([
-      // next.revalidate uses Vercel's shared CDN cache — not per-instance memory
-      fetch(SETTINGS_URL, { next: { revalidate: 300 } }),
+      fetch(SETTINGS_URL),
       new Promise((_, reject) =>
         setTimeout(() => reject(new Error("timeout")), FETCH_TIMEOUT)
       ),
@@ -153,7 +152,7 @@ export default async function middleware(request) {
 
   // Fetch VWO settings (shared CDN cache — one fetch per 5 min globally)
   const settings = await getVwoSettings();
-  console.log("[middleware] settings fetched:", settings ? `${settings.campaigns?.length} campaigns` : "null");
+  console.log("[middleware] settings fetched:", settings ? `${settings.campaigns?.length} campaigns` : "null — check VWO account ID or campaign status");
 
   const setCookies = [];
 
