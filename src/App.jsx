@@ -17,6 +17,16 @@ function App() {
     fetchSiteData().then((data) => setSiteData(data));
   }, []);
 
+  // Write the real user ID into a cookie so Edge Middleware can read it
+  // on the NEXT request. Middleware runs before React, so first-visit gets
+  // an anonymous ID; from second visit onward the real identity is used.
+  useEffect(() => {
+    const userId = window.AB_TEST_DATA?.user_id;
+    if (!userId) return;
+    const maxAge = 60 * 60 * 24 * 365; // 1 year — identity cookie
+    document.cookie = `prowess_user_id=${encodeURIComponent(userId)}; Path=/; Max-Age=${maxAge}; SameSite=Lax`;
+  }, []);
+
   // Track every route change as a page_view in Pinpoint
   useEffect(() => {
     const platform = window.AB_TEST_DATA?.platform_version ?? "react_modern";

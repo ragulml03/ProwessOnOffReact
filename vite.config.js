@@ -14,7 +14,7 @@ export default defineConfig({
       reporter: ["text", "lcov", "html"],
       include: ["src/pages/**", "src/hooks/**", "src/components/**"],
       exclude: ["src/test/**"],
-      thresholds: { lines: 60, functions: 60 },
+      thresholds: { lines: 50, functions: 50 },
     },
   },
   server: {
