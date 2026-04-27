@@ -48,10 +48,13 @@
           window.dispatchEvent(new CustomEvent("abTestDataReady"));
         })
         .catch(function () {
-          // Fallback so the app never hangs — assume React platform, unknown user.
+          // Vercel standalone: no .NET backend. Reuse the LD user key stored in
+          // localStorage so VWO ties the visitor to the same identity as LaunchDarkly.
+          var storedUserId = "";
+          try { storedUserId = JSON.parse(localStorage.getItem("ld-user-key") || '""') || ""; } catch (e) {}
           window.AB_TEST_DATA = {
             platform_version: "react_modern",
-            user_id: "",
+            user_id: storedUserId,
             migration_group: "react-migration-test-enabled"
           };
           window.dispatchEvent(new CustomEvent("abTestDataReady"));
