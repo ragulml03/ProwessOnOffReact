@@ -34,9 +34,7 @@ jobs:
         run: npm run build
         env:
           VITE_LD_CLIENT_SIDE_ID: ${{ secrets.VITE_LD_CLIENT_SIDE_ID }}
-          VITE_PINPOINT_APP_ID: ${{ secrets.VITE_PINPOINT_APP_ID }}
-          VITE_COGNITO_IDENTITY_POOL_ID: ${{ secrets.VITE_COGNITO_IDENTITY_POOL_ID }}
-          VITE_AWS_REGION: eu-north-1
+          VITE_MIXPANEL_TOKEN: ${{ secrets.VITE_MIXPANEL_TOKEN }}
 
       - name: Upload build artifact
         # Keeps the built files for 7 days — useful for rollback audit
@@ -153,9 +151,7 @@ jobs:
         run: npm run build
         env:
           VITE_LD_CLIENT_SIDE_ID: ${{ secrets.VITE_LD_CLIENT_SIDE_ID }}
-          VITE_PINPOINT_APP_ID: ${{ secrets.VITE_PINPOINT_APP_ID }}
-          VITE_COGNITO_IDENTITY_POOL_ID: ${{ secrets.VITE_COGNITO_IDENTITY_POOL_ID }}
-          VITE_AWS_REGION: eu-north-1
+          VITE_MIXPANEL_TOKEN: ${{ secrets.VITE_MIXPANEL_TOKEN }}
 
       - name: Deploy production to Vercel
         run: npx vercel --prod --token ${{ secrets.VERCEL_TOKEN }} --yes

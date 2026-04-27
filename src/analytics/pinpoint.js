@@ -1,29 +1,20 @@
-import { Amplify } from "aws-amplify";
-import { record } from "aws-amplify/analytics";
+import mixpanel from "mixpanel-browser";
 
-// Initialise Amplify once. No-ops gracefully if env vars are not set
-// (local dev without AWS credentials configured).
-Amplify.configure({
-  Auth: {
-    Cognito: {
-      identityPoolId: import.meta.env.VITE_COGNITO_IDENTITY_POOL_ID ?? "",
-      allowGuestAccess: true,
-    },
-  },
-  Analytics: {
-    Pinpoint: {
-      appId: import.meta.env.VITE_PINPOINT_APP_ID ?? "",
-      region: import.meta.env.VITE_AWS_REGION ?? "eu-north-1",
-    },
-  },
+// EU data residency — matches eu.mixpanel.com account
+mixpanel.init(import.meta.env.VITE_MIXPANEL_TOKEN ?? "", {
+  api_host: "https://api-eu.mixpanel.com",
+  persistence: "localStorage",
+  ignore_dnt: false,
 });
 
-const enabled = Boolean(import.meta.env.VITE_PINPOINT_APP_ID);
+const enabled = Boolean(import.meta.env.VITE_MIXPANEL_TOKEN);
 
-function track(name, attributes = {}, metrics = {}) {
+function track(name, properties = {}) {
   if (!enabled) return;
   try {
-    record({ name, attributes, metrics });
+    const platform = window.AB_TEST_DATA?.platform_version ?? "react_modern";
+    const migrationGroup = window.AB_TEST_DATA?.migration_group ?? "";
+    mixpanel.track(name, { platform, migration_group: migrationGroup, ...properties });
   } catch {
     // Never let analytics throw break the user flow.
   }
@@ -31,27 +22,19 @@ function track(name, attributes = {}, metrics = {}) {
 
 // ─── 1. Page view ─────────────────────────────────────────────────────────────
 export function trackPageView(page, platform, migrationGroup) {
-  track("page_view", {
-    page,
-    platform: platform ?? "react_modern",
-    migration_group: migrationGroup ?? "",
-  });
+  track("page_view", { page, platform, migration_group: migrationGroup ?? "" });
 }
 
 // ─── 2. Core Web Vital ────────────────────────────────────────────────────────
 export function trackWebVital(name, value, rating, platform) {
-  track(
-    "core_web_vital",
-    { metric_name: name, rating, platform: platform ?? "react_modern" },
-    { value: Math.round(value) }
-  );
+  track("core_web_vital", { metric_name: name, value: Math.round(value), rating, platform });
 }
 
-// ─── 3. VWO variation assigned (fires once per page when variation resolves) ──
+// ─── 3. VWO variation assigned ────────────────────────────────────────────────
 export function trackVwoVariationAssigned(campaignId, variationId, variationLabel, page) {
   track("vwo_variation_assigned", {
-    campaign_id: String(campaignId),
-    variation_id: String(variationId),
+    campaign_id: campaignId,
+    variation_id: variationId,
     variation_label: variationLabel,
     page,
   });
@@ -60,14 +43,14 @@ export function trackVwoVariationAssigned(campaignId, variationId, variationLabe
 // ─── 4. VWO goal converted ────────────────────────────────────────────────────
 export function trackVwoGoalConverted(campaignId, goalId, variationLabel, context = {}) {
   track("vwo_goal_converted", {
-    campaign_id: String(campaignId),
-    goal_id: String(goalId),
+    campaign_id: campaignId,
+    goal_id: goalId,
     variation_label: variationLabel,
     ...context,
   });
 }
 
-// ─── 5. LaunchDarkly flag evaluated ──────────────────────────────────────────
+// ─── 5. LaunchDarkly flag evaluated ───────────────────────────────────────────
 export function trackLdFlagEvaluated(flagKey, value, userId) {
   track("ld_flag_evaluated", {
     flag_key: flagKey,
@@ -76,25 +59,17 @@ export function trackLdFlagEvaluated(flagKey, value, userId) {
   });
 }
 
-// ─── 6. LaunchDarkly conversion (mirrors ldClient.track) ─────────────────────
+// ─── 6. LaunchDarkly conversion ───────────────────────────────────────────────
 export function trackLdConversion(eventName, attributes = {}) {
   track("ld_conversion", { event_name: eventName, ...attributes });
 }
 
 // ─── 7. Apply click (Careers page) ───────────────────────────────────────────
 export function trackApplyClick(jobTitle, variationLabel, platform) {
-  track("apply_click", {
-    job_title: jobTitle ?? "",
-    variation_label: variationLabel,
-    platform: platform ?? "react_modern",
-  });
+  track("apply_click", { job_title: jobTitle ?? "", variation_label: variationLabel, platform });
 }
 
 // ─── 8. Profile action ────────────────────────────────────────────────────────
 export function trackProfileAction(actionType, variationLabel, platform) {
-  track("profile_action", {
-    action: actionType,
-    variation_label: variationLabel,
-    platform: platform ?? "react_modern",
-  });
+  track("profile_action", { action: actionType, variation_label: variationLabel, platform });
 }
