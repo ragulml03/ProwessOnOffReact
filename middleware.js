@@ -21,7 +21,7 @@ import { next } from "@vercel/edge";
 
 const VWO_ACCOUNT_ID = "1223984";
 const SETTINGS_URL   = `https://dev.visualwebsiteoptimizer.com/server-side/settings-file?a=${VWO_ACCOUNT_ID}`;
-const FETCH_TIMEOUT  = 300; // ms — if VWO CDN is slow, don't block the user
+const FETCH_TIMEOUT  = 1500; // ms — if VWO CDN is slow, don't block the user
 
 // Multiple campaigns per page are supported — add new entries here.
 // CI checks that every VWO.push(["activate", X]) in index.html has an entry.
