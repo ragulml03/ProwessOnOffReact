@@ -57,9 +57,10 @@ export function useVwoExperiment(campaignId) {
       // VWO processes it immediately if already loaded, or on load otherwise.
       window.VWO.push(["activate", campaignId]);
 
-      // Poll for combination_chosen with a 100ms interval, 5s total budget.
-      // 5s covers slow mobile connections and ngrok latency; still falls back to Control.
-      const deadline = Date.now() + 5000;
+      // Poll for combination_chosen with a 100ms interval, 2.5s total budget.
+      // Matches the 2s settings_tolerance in the VWO SmartCode — if VWO hasn't
+      // responded by then, fall back to Control rather than blocking the page.
+      const deadline = Date.now() + 2500;
       const poll = setInterval(() => {
         const variation = window._vwo_exp?.[campaignId]?.combination_chosen;
         if (variation != null) {

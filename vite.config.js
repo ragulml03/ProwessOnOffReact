@@ -20,7 +20,6 @@ export default defineConfig({
   server: {
     port: 5173,
     strictPort: true,
-    allowedHosts: ["nutshell-grimace-cobalt.ngrok-free.dev"],
     proxy: {
       "/api": {
         target: "http://localhost:5080",
