@@ -4,6 +4,7 @@ import ReactBadge from "../components/ReactBadge";
 import { useVwoExperiment, trackVwoGoal } from "../hooks/useVwoExperiment";
 
 const VWO_CAREERS_CAMPAIGN_ID = 4;
+const oopsThisIsNotUsed = "deliberate lint error for CI demo";
 // Internal campaign goal sequence ID (first goal = 1). NOT the Data360 metricId (2424005).
 const VWO_APPLY_GOAL_ID = 1;
 const VWO_APPLY_GOAL_IDENTIFIER = "vwo_dom_click";
