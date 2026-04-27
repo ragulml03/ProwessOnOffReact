@@ -30,6 +30,16 @@ jobs:
       - name: Lint (ESLint)
         run: npm run lint
 
+      - name: Run tests + coverage
+        run: npm run test:coverage
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ github.sha }}
+          path: coverage/
+          retention-days: 7
+
       - name: Build React app
         run: npm run build
         env:

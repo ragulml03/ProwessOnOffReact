@@ -6,21 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>OffOn</title>
 
-    <!-- Google Analytics 4
-         Replace G-XXXXXXXXXX with your real GA4 Measurement ID.
-         Get it from: GA4 Dashboard → Admin → Data Streams → Web → Measurement ID -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script>
-    <script>
-      window.dataLayer = window.dataLayer || [];
-      function gtag(){dataLayer.push(arguments);}
-      gtag('js', new Date());
-      gtag('config', 'G-XXXXXXXXXX', {
-        send_page_view: true,
-        custom_map: { dimension1: 'platform', dimension2: 'metric_rating' }
-      });
-      // Store measurement ID so main.jsx can read it
-      window.GA_MEASUREMENT_ID = 'G-XXXXXXXXXX';
-    </script>
+
 
     <!--
       In PRODUCTION (dotnet publish), AbTestMiddleware injects window.AB_TEST_DATA

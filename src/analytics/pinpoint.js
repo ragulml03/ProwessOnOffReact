@@ -73,3 +73,8 @@ export function trackApplyClick(jobTitle, variationLabel, platform) {
 export function trackProfileAction(actionType, variationLabel, platform) {
   track("profile_action", { action: actionType, variation_label: variationLabel, platform });
 }
+
+// ─── 9. JS error (crash analytics) ───────────────────────────────────────────
+export function trackJsError(message, context = {}) {
+  track("js_error", { message: String(message).slice(0, 300), ...context });
+}
