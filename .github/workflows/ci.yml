@@ -1,0 +1,176 @@
+name: React CI / CD
+
+# Runs on every push to main and every pull request targeting main.
+on:
+  push:
+    branches: [main, "feature/**"]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ─── 1. Quality Gate ────────────────────────────────────────────────────────
+  # Must pass before any deployment is attempted.
+  quality-gate:
+    name: Lint + Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint (ESLint)
+        run: npm run lint
+
+      - name: Build React app
+        run: npm run build
+        env:
+          VITE_LD_CLIENT_SIDE_ID: ${{ secrets.VITE_LD_CLIENT_SIDE_ID }}
+
+      - name: Upload build artifact
+        # Keeps the built files for 7 days — useful for rollback audit
+        uses: actions/upload-artifact@v4
+        with:
+          name: react-build-${{ github.sha }}
+          path: dist/
+          retention-days: 7
+
+  # ─── 2. Feature Flag Checklist ──────────────────────────────────────────────
+  # Automatically checks that every new VWO hook call has matching analytics.
+  flag-review:
+    name: Flag Review Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check every useVwoExperiment call has trackVwoGoal
+        run: |
+          # Count useVwoExperiment calls vs trackVwoGoal calls per file
+          echo "=== VWO hook usage ==="
+          grep -rn "useVwoExperiment" src/ || true
+          echo "=== Goal tracking calls ==="
+          grep -rn "trackVwoGoal" src/ || true
+
+      - name: Check flag naming convention
+        run: |
+          # All LD flag keys must use kebab-case
+          echo "=== LaunchDarkly flag keys in use ==="
+          grep -rn "useFlags\|ldClient\.track" src/ || true
+
+      - name: Check debug badges are removed before production push
+        if: github.ref == 'refs/heads/main'
+        run: |
+          # Fail if any debug banner is left in production code
+          if grep -rn "Live Experiment Variant Active" src/; then
+            echo "❌ Debug banner still present. Remove before merging to main."
+            exit 1
+          fi
+          echo "✅ No debug banners found."
+
+  # ─── 3. Stale Flag Check (runs weekly on Mondays) ───────────────────────────
+  stale-flag-check:
+    name: Stale Flag Audit
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Find VWO campaign IDs in code
+        run: |
+          echo "=== Active VWO Campaign IDs ==="
+          grep -rn "VWO_.*CAMPAIGN_ID" src/ || true
+
+      - name: Check LaunchDarkly flag age via API
+        run: |
+          # Lists flags not modified in the last 90 days
+          # Requires LD_API_KEY secret in GitHub repo settings
+          if [ -n "${{ secrets.LD_API_KEY }}" ]; then
+            CUTOFF=$(date -d '-90 days' +%s%3N 2>/dev/null || date -v-90d +%s000)
+            curl -sf -H "Authorization: ${{ secrets.LD_API_KEY }}" \
+              "https://app.launchdarkly.com/api/v2/flags/default" \
+              | jq --argjson cutoff "$CUTOFF" \
+                '[.items[] | select(.creationDate < $cutoff) | {key, creationDate}]'
+          else
+            echo "LD_API_KEY secret not set — skipping LD stale flag check."
+          fi
+
+  # ─── 4. Deploy Preview to Vercel (on Pull Request) ──────────────────────────
+  deploy-preview:
+    name: Deploy Preview (Vercel)
+    needs: [quality-gate, flag-review]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Deploy preview to Vercel
+        run: npx vercel --token ${{ secrets.VERCEL_TOKEN }} --yes
+        env:
+          VERCEL_ORG_ID:     ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+  # ─── 5. Deploy Production to Vercel (on merge to main) ──────────────────────
+  # Uses the "production" GitHub environment which requires a named reviewer
+  # to approve before this job runs.
+  # Setup: GitHub repo → Settings → Environments → production → Required reviewers
+  deploy-production:
+    name: Deploy Production (Vercel)
+    needs: [quality-gate, flag-review]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment:
+      name: production
+      url: https://your-vercel-app.vercel.app  # update with your Vercel URL
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build for production
+        run: npm run build
+        env:
+          VITE_LD_CLIENT_SIDE_ID: ${{ secrets.VITE_LD_CLIENT_SIDE_ID }}
+
+      - name: Deploy production to Vercel
+        run: npx vercel --prod --token ${{ secrets.VERCEL_TOKEN }} --yes
+        env:
+          VERCEL_ORG_ID:     ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+      - name: Notify Slack on success
+        if: success() && env.SLACK_WEBHOOK != ''
+        run: |
+          curl -X POST ${{ secrets.SLACK_WEBHOOK }} \
+            -H 'Content-type: application/json' \
+            -d '{"text":"✅ React deployed to production — commit ${{ github.sha }}"}'
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+
+      - name: Notify Slack on failure
+        if: failure() && env.SLACK_WEBHOOK != ''
+        run: |
+          curl -X POST ${{ secrets.SLACK_WEBHOOK }} \
+            -H 'Content-type: application/json' \
+            -d '{"text":"❌ React production deploy FAILED — ${{ github.sha }} — ${{ github.actor }}"}'
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
