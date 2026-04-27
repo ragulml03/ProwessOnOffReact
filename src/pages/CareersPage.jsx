@@ -204,44 +204,25 @@ export default function CareersPage({ siteData }) {
 
   const [appliedJob, setAppliedJob] = useState(null);
 
-  const trackApply = async (job) => {
+  const trackApply = (job) => {
     const variationLabel = isChallenger ? "Challenger (Variation 2)" : "Control (Variation 1)";
     console.log(`[A/B] Apply clicked — ${variationLabel} — Job: ${job?.title}`);
 
-    try {
-      // 1. VWO goal conversion
-      trackVwoGoal(VWO_CAREERS_CAMPAIGN_ID, VWO_APPLY_GOAL_ID, VWO_APPLY_GOAL_IDENTIFIER);
-      console.log(`[VWO] track.goals fired — campaign ${VWO_CAREERS_CAMPAIGN_ID}, goal ${VWO_APPLY_GOAL_ID}`);
+    // 1. VWO goal conversion
+    trackVwoGoal(VWO_CAREERS_CAMPAIGN_ID, VWO_APPLY_GOAL_ID, VWO_APPLY_GOAL_IDENTIFIER);
+    console.log(`[VWO] track.goals fired — campaign ${VWO_CAREERS_CAMPAIGN_ID}, goal ${VWO_APPLY_GOAL_ID}`);
 
-      // 2. LaunchDarkly metric
-      ldClient?.track("conversion", {
-        source: "react-careers",
-        action: "apply-click",
-        vwoVariation: variationId,
-        variationLabel,
-        jobTitle: job?.title,
-      });
-      console.log(`[LaunchDarkly] conversion event sent — variation ${variationId}`);
+    // 2. LaunchDarkly metric (client-side SDK — no .NET backend required)
+    ldClient?.track("conversion", {
+      source: "react-careers",
+      action: "apply-click",
+      vwoVariation: variationId,
+      variationLabel,
+      jobTitle: job?.title,
+    });
+    console.log(`[LaunchDarkly] conversion event sent — variation ${variationId}`);
 
-      // 3. Server-side tracking
-      await fetch("/api/track-conversion", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          source: "react-careers",
-          action: "apply-click",
-          vwoVariation: variationId,
-        }),
-      });
-      console.log(`[Server] /api/track-conversion posted`);
-
-      // Show success popup after all tracking fires
-      setAppliedJob(job);
-    } catch (error) {
-      console.warn("[A/B] conversion tracking failed", error);
-      // Still show popup even if tracking fails
-      setAppliedJob(job);
-    }
+    setAppliedJob(job);
   };
 
   if (isLoading) return <CareersPageSkeleton />;
