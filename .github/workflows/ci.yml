@@ -135,7 +135,7 @@ jobs:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     environment:
       name: production
-      url: https://your-vercel-app.vercel.app  # update with your Vercel URL
+      url: https://prowess-on-off-react.vercel.app
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
