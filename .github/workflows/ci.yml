@@ -76,6 +76,21 @@ jobs:
           echo "=== LaunchDarkly flag keys in use ==="
           grep -rn "useFlags\|ldClient\.track" src/ || true
 
+      - name: Check middleware.js has entry for every VWO campaign activated in index.html
+        run: |
+          # Every window.VWO.push(["activate", X]) in index.html must have a
+          # matching entry in middleware.js CAMPAIGN_MAP — otherwise the server-side
+          # assignment is skipped and users fall back to the slow client-side path.
+          ACTIVATE_IDS=$(grep -oP '"activate",\s*\K[0-9]+' index.html | sort -n | tr '\n' ' ' | xargs)
+          MIDDLEWARE_IDS=$(grep -oP '(?<=id:\s)[0-9]+' middleware.js | sort -n | tr '\n' ' ' | xargs)
+          echo "index.html activates:  $ACTIVATE_IDS"
+          echo "middleware.js maps:    $MIDDLEWARE_IDS"
+          if [ "$ACTIVATE_IDS" != "$MIDDLEWARE_IDS" ]; then
+            echo "❌ Campaign ID mismatch — add missing IDs to CAMPAIGNS in middleware.js"
+            exit 1
+          fi
+          echo "✅ All campaign IDs are registered in middleware.js"
+
       - name: Check debug badges are removed before production push
         if: github.ref == 'refs/heads/main'
         run: |
