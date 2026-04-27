@@ -153,11 +153,13 @@ export default async function middleware(request) {
 
   // Fetch VWO settings (shared CDN cache — one fetch per 5 min globally)
   const settings = await getVwoSettings();
+  console.log("[middleware] settings fetched:", settings ? `${settings.campaigns?.length} campaigns` : "null");
 
   const setCookies = [];
 
   for (const campaign of missing) {
     const variationId = getVariationId(settings, campaign.id, userId);
+    console.log(`[middleware] campaign ${campaign.id} → variationId=${variationId}, userId=${userId.slice(0,8)}`);
     // null = campaign paused/archived, user outside traffic %, or fetch failed
     // → no cookie set → React falls back to client-side VWO
     if (variationId != null) {
