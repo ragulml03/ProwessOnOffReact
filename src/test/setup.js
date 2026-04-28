@@ -14,7 +14,7 @@ vi.mock("mixpanel-browser", () => ({
   default: { init: vi.fn(), track: vi.fn() },
 }));
 
-vi.mock("statsig-react", () => ({
+vi.mock("@statsig/react-bindings", () => ({
   StatsigProvider:  ({ children }) => children,
-  useStatsigClient: () => ({ client: { logEvent: vi.fn(), logExperimentExposure: vi.fn() } }),
+  useStatsigClient: () => ({ client: { logEvent: vi.fn() }, isLoading: false }),
 }));

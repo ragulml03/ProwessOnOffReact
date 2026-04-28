@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useStatsigClient } from "statsig-react";
+import { useStatsigClient } from "@statsig/react-bindings";
 
 /**
  * useExperiment — server-first experiment hook for React.
@@ -46,20 +46,21 @@ export function useExperiment(experimentKey) {
   const resolvedRef = useRef(serverVariation != null);
 
   useEffect(() => {
-    // Path A: server cookie present — log exposure and done
+    if (!statsigClient || !experimentName) return;
+
+    // Path A: server cookie present — log exposure via logEvent (v3 has no logExperimentExposure)
     if (serverVariation != null) {
-      statsigClient?.logExperimentExposure?.(experimentName);
+      statsigClient.logEvent("experiment_exposure", null, {
+        experiment: experimentName,
+        variation: serverVariation,
+      });
       return;
     }
 
-    // Path B: no cookie, no client — initial state already defaults to control/not-loading
-    if (!statsigClient || !experimentName) {
-      return;
-    }
-
-    const resolve = () => {
-      if (resolvedRef.current) return;
-      resolvedRef.current = true;
+    // Path B: no cookie — evaluate via client SDK (local dev without middleware)
+    if (resolvedRef.current) return;
+    resolvedRef.current = true;
+    statsigClient.initializeAsync?.().then(() => {
       try {
         const exp = statsigClient.getExperiment(experimentName);
         setVariation(exp.get("variation", "control"));
@@ -67,16 +68,10 @@ export function useExperiment(experimentKey) {
         setVariation("control");
       }
       setIsLoading(false);
-    };
-
-    if (statsigClient.initializeCalled?.()) {
-      resolve();
-    } else {
-      statsigClient.initializeAsync?.().then(resolve).catch(() => {
-        setVariation("control");
-        setIsLoading(false);
-      });
-    }
+    }).catch(() => {
+      setVariation("control");
+      setIsLoading(false);
+    });
   }, [experimentName, serverVariation, statsigClient]);
 
   return { variation, isLoading };

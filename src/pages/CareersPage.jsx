@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useFlags, useLDClient } from "launchdarkly-react-client-sdk";
 import ReactBadge from "../components/ReactBadge";
 import { useExperiment, trackExperimentGoal } from "../hooks/useExperiment";
+import { useStatsigClient } from "@statsig/react-bindings";
 import {
   trackVwoVariationAssigned,
   trackVwoGoalConverted,
@@ -205,7 +206,7 @@ export default function CareersPage({ siteData }) {
 
   const { variation, isLoading } = useExperiment(EXPERIMENT_KEY);
   const isChallenger = variation === "challenger";
-  const statsigClient = null; // no StatsigProvider — trackExperimentGoal is a no-op
+  const { client: statsigClient } = useStatsigClient();
 
   const [appliedJob, setAppliedJob] = useState(null);
 

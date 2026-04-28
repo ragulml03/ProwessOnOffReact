@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { useFlags, useLDClient } from "launchdarkly-react-client-sdk";
 import ReactBadge from "../components/ReactBadge";
 import { useExperiment, trackExperimentGoal } from "../hooks/useExperiment";
+import { useStatsigClient } from "@statsig/react-bindings";
 import {
   trackVwoVariationAssigned,
   trackVwoGoalConverted,
@@ -133,7 +134,7 @@ export default function ProfilePage({ siteData }) {
   // ── Statsig Experiment: Profile stat card layout ──────────────────────────
   const { variation: profileVariation } = useExperiment(EXPERIMENT_KEY);
   const isProfileChallenger = profileVariation === "challenger";
-  const statsigClient = null; // no StatsigProvider — trackExperimentGoal is a no-op
+  const { client: statsigClient } = useStatsigClient();
 
   const [activeAction, setActiveAction] = useState(null);
 
