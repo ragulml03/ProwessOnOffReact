@@ -27,14 +27,11 @@ function readCookie(name) {
 }
 
 export function useExperiment(experimentKey) {
-  const cookieName       = COOKIE_MAP[experimentKey];
-  const experimentName   = EXPERIMENT_MAP[experimentKey];
-  const serverVariation  = cookieName ? readCookie(cookieName) : null;
+  const cookieName      = COOKIE_MAP[experimentKey];
+  const experimentName  = EXPERIMENT_MAP[experimentKey];
+  const serverVariation = cookieName ? readCookie(cookieName) : null;
 
-  const [variation, setVariation] = useState(serverVariation ?? "control");
-  const [isLoading, setIsLoading] = useState(serverVariation == null);
-  const resolvedRef = useRef(serverVariation != null);
-
+  // Call hook before useState so initial isLoading can account for missing client
   let statsigClient = null;
   try {
     const ctx = useStatsigClient();
@@ -43,6 +40,11 @@ export function useExperiment(experimentKey) {
     // Statsig provider not mounted (e.g. during tests)
   }
 
+  const [variation, setVariation] = useState(serverVariation ?? "control");
+  // Only show loading if we have no cookie AND have a Statsig client to resolve from
+  const [isLoading, setIsLoading] = useState(serverVariation == null && statsigClient != null);
+  const resolvedRef = useRef(serverVariation != null);
+
   useEffect(() => {
     // Path A: server cookie present — log exposure and done
     if (serverVariation != null) {
@@ -50,10 +52,8 @@ export function useExperiment(experimentKey) {
       return;
     }
 
-    // Path B: no cookie — fallback to Statsig client SDK
+    // Path B: no cookie, no client — initial state already defaults to control/not-loading
     if (!statsigClient || !experimentName) {
-      setVariation("control");
-      setIsLoading(false);
       return;
     }
 

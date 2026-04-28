@@ -1,3 +1,4 @@
+/* global process */
 import { next } from "@vercel/edge";
 
 /**
