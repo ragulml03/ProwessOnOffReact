@@ -55,24 +55,27 @@ jobs:
           retention-days: 7
 
   # ─── 2. Feature Flag Checklist ──────────────────────────────────────────────
-  # Automatically checks that every new VWO hook call has matching analytics.
   flag-review:
     name: Flag Review Check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Check every useVwoExperiment call has trackVwoGoal
+      - name: Check every useExperiment call has trackExperimentGoal
         run: |
-          # Count useVwoExperiment calls vs trackVwoGoal calls per file
-          echo "=== VWO hook usage ==="
-          grep -rn "useVwoExperiment" src/ || true
-          echo "=== Goal tracking calls ==="
-          grep -rn "trackVwoGoal" src/ || true
+          echo "=== Statsig experiment hook usage ==="
+          grep -rn "useExperiment" src/ || true
+          echo "=== Statsig goal tracking calls ==="
+          grep -rn "trackExperimentGoal" src/ || true
+
+      - name: Check middleware.js PAGE_EXPERIMENTS matches Statsig dashboard
+        run: |
+          echo "=== Statsig experiments registered in middleware.js ==="
+          grep -oP '(?<=name: ")[^"]+' middleware.js || true
+          echo "✅ Verify these match experiment names in the Statsig dashboard"
 
       - name: Check flag naming convention
         run: |
-          # All LD flag keys must use kebab-case
           echo "=== LaunchDarkly flag keys in use ==="
           grep -rn "useFlags\|ldClient\.track" src/ || true
 

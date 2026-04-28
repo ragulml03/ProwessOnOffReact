@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useFlags, useLDClient } from "launchdarkly-react-client-sdk";
 import ReactBadge from "../components/ReactBadge";
-import { useVwoExperiment, trackVwoGoal } from "../hooks/useVwoExperiment";
+import { useExperiment, trackExperimentGoal } from "../hooks/useExperiment";
+import { useStatsigClient } from "statsig-react";
 import {
   trackVwoVariationAssigned,
   trackVwoGoalConverted,
@@ -11,16 +12,8 @@ import {
   trackProfileAction as trackProfileActionPinpoint,
 } from "../analytics/pinpoint.js";
 
-// ─── VWO Campaign 5: Profile Stats Card Layout Test ──────────────────────────
-// Create this campaign in VWO Dashboard → Campaigns → New A/B Test
-// Target URL: contains /app/profile
-// Replace 5 with the actual campaign ID from the VWO URL after creation.
-const VWO_PROFILE_CAMPAIGN_ID = 5;
-
-// Create a Click metric in VWO for this campaign named "EditProfileClick"
-// then replace 1 with the internal goal sequence ID (first goal = 1).
-const VWO_PROFILE_GOAL_ID = 1;
-const VWO_PROFILE_GOAL_IDENTIFIER = "vwo_dom_click_profile";
+const EXPERIMENT_KEY    = "profile";
+const STATSIG_GOAL_NAME = "profile_action";
 
 // ─── Action feedback modal ────────────────────────────────────────────────────
 const ACTION_CONTENT = {
@@ -138,39 +131,37 @@ export default function ProfilePage({ siteData }) {
   useFlags();
   const ldClient = useLDClient();
 
-  // ── VWO Test 2: Profile stat card layout ──────────────────────────────────
-  const { variationId: profileVariationId } = useVwoExperiment(VWO_PROFILE_CAMPAIGN_ID);
-  const isProfileChallenger = profileVariationId === 2;
+  // ── Statsig Experiment: Profile stat card layout ──────────────────────────
+  const { variation: profileVariation } = useExperiment(EXPERIMENT_KEY);
+  const isProfileChallenger = profileVariation === "challenger";
+  const { client: statsigClient } = useStatsigClient();
 
   const [activeAction, setActiveAction] = useState(null);
 
-  // Event 3 — fire once when VWO resolves variation for this user
+  // Fire once when experiment resolves — log to Pinpoint for funnel tracking
   useEffect(() => {
-    if (profileVariationId == null) return;
-    const variationLabel = profileVariationId === 2 ? "Challenger (Variation 2)" : "Control (Variation 1)";
-    trackVwoVariationAssigned(VWO_PROFILE_CAMPAIGN_ID, profileVariationId, variationLabel, "profile");
-  }, [profileVariationId]);
+    const variationLabel = isProfileChallenger ? "Challenger" : "Control";
+    trackVwoVariationAssigned(EXPERIMENT_KEY, profileVariation, variationLabel, "profile");
+  }, [profileVariation, isProfileChallenger]);
 
-  // Event 5 — fire once when LD flags are available (reactMigrationTest flag state)
+  // Event 5 — fire once when LD flags are available
   useEffect(() => {
     const userId = window.AB_TEST_DATA?.user_id ?? "";
     trackLdFlagEvaluated("reactMigrationTest", true, userId);
   }, []);
 
   const trackProfileAction = (action) => {
-    const variationLabel = isProfileChallenger ? "Challenger (Variation 2)" : "Control (Variation 1)";
+    const variationLabel = isProfileChallenger ? "Challenger" : "Control";
     const platform = window.AB_TEST_DATA?.platform_version ?? "react_modern";
-    console.log(`[A/B Test 2 — Profile] ${action} clicked — ${variationLabel}`);
 
-    // Event 4 — VWO goal + Pinpoint mirror
-    trackVwoGoal(VWO_PROFILE_CAMPAIGN_ID, VWO_PROFILE_GOAL_ID, VWO_PROFILE_GOAL_IDENTIFIER);
-    trackVwoGoalConverted(VWO_PROFILE_CAMPAIGN_ID, VWO_PROFILE_GOAL_ID, variationLabel, { action });
-
-    // Event 6 — LD conversion + Pinpoint mirror
-    ldClient?.track("profile-action", { source: "react-profile", action, vwoVariation: profileVariationId, variationLabel });
+    // 1. Statsig goal event
+    trackExperimentGoal(statsigClient, "profile_experiment", STATSIG_GOAL_NAME, { action });
+    // 2. Pinpoint mirror
+    trackVwoGoalConverted(EXPERIMENT_KEY, 1, STATSIG_GOAL_NAME, { action });
+    // 3. LD conversion + Pinpoint mirror
+    ldClient?.track("profile-action", { source: "react-profile", action, variation: variationLabel });
     trackLdConversion("profile-action", { source: "react-profile", variation_label: variationLabel });
-
-    // Event 8 — profile_action with full context
+    // 4. Pinpoint profile action
     trackProfileActionPinpoint(action, variationLabel, platform);
 
     setActiveAction(action);
