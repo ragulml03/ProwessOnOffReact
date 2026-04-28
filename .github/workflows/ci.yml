@@ -25,7 +25,7 @@ jobs:
           cache-dependency-path: package-lock.json
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --legacy-peer-deps
 
       - name: Lint (ESLint)
         run: npm run lint
@@ -45,6 +45,7 @@ jobs:
         env:
           VITE_LD_CLIENT_SIDE_ID: ${{ secrets.VITE_LD_CLIENT_SIDE_ID }}
           VITE_MIXPANEL_TOKEN: ${{ secrets.VITE_MIXPANEL_TOKEN }}
+          VITE_STATSIG_CLIENT_KEY: ${{ secrets.VITE_STATSIG_CLIENT_KEY }}
 
       - name: Upload build artifact
         # Keeps the built files for 7 days — useful for rollback audit
@@ -97,10 +98,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Find VWO campaign IDs in code
+      - name: Find Statsig experiment names in code
         run: |
-          echo "=== Active VWO Campaign IDs ==="
-          grep -rn "VWO_.*CAMPAIGN_ID" src/ || true
+          echo "=== Active Statsig experiment names ==="
+          grep -rn "statsig_exp_\|careers_experiment\|profile_experiment" src/ middleware.js || true
 
       - name: Check LaunchDarkly flag age via API
         run: |
@@ -130,7 +131,7 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --legacy-peer-deps
 
       - name: Deploy preview to Vercel
         run: npx vercel --token ${{ secrets.VERCEL_TOKEN }} --yes
@@ -158,13 +159,14 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --legacy-peer-deps
 
       - name: Build for production
         run: npm run build
         env:
           VITE_LD_CLIENT_SIDE_ID: ${{ secrets.VITE_LD_CLIENT_SIDE_ID }}
           VITE_MIXPANEL_TOKEN: ${{ secrets.VITE_MIXPANEL_TOKEN }}
+          VITE_STATSIG_CLIENT_KEY: ${{ secrets.VITE_STATSIG_CLIENT_KEY }}
 
       - name: Deploy production to Vercel
         run: npx vercel --prod --token ${{ secrets.VERCEL_TOKEN }} --yes
