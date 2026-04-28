@@ -17,5 +17,4 @@ vi.mock("mixpanel-browser", () => ({
 vi.mock("@statsig/react-bindings", () => ({
   StatsigProvider:  ({ children }) => children,
   useStatsigClient: () => ({ client: { logEvent: vi.fn() }, isLoading: false }),
-  useFeatureGate:   () => ({ value: false, isLoading: false }),
 }));

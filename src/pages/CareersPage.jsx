@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useFeatureGate, useStatsigClient } from "@statsig/react-bindings";
+import { useStatsigClient } from "@statsig/react-bindings";
 import ReactBadge from "../components/ReactBadge";
 import { useExperiment, trackExperimentGoal } from "../hooks/useExperiment";
 import {
@@ -199,7 +199,6 @@ function ChallengerHero({ siteData }) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function CareersPage({ siteData }) {
   const jobs = Array.isArray(siteData?.careers?.jobs) ? siteData.careers.jobs : [];
-  const { value: reactMigrationTest } = useFeatureGate("react_migration_test");
 
   const { variation, isLoading } = useExperiment(EXPERIMENT_KEY);
   const isChallenger = variation === "challenger";
@@ -244,13 +243,6 @@ export default function CareersPage({ siteData }) {
         <ChallengerHero siteData={siteData} />
       ) : (
         <ControlHero siteData={siteData} />
-      )}
-
-      {reactMigrationTest && (
-        <div className="text-center text-xs tracking-wider uppercase text-emerald-300 -mt-8 mb-4">
-          Live Experiment Active — Statsig: {variation ?? "control"}{" "}
-          ({isChallenger ? "Challenger" : "Control"})
-        </div>
       )}
 
       <section className="pb-28 px-6">
