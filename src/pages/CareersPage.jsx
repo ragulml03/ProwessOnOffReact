@@ -1,12 +1,10 @@
 import { useState, useEffect } from "react";
-import { useFlags, useLDClient } from "launchdarkly-react-client-sdk";
+import { useFeatureGate, useStatsigClient } from "@statsig/react-bindings";
 import ReactBadge from "../components/ReactBadge";
 import { useExperiment, trackExperimentGoal } from "../hooks/useExperiment";
-import { useStatsigClient } from "@statsig/react-bindings";
 import {
   trackVwoVariationAssigned,
   trackVwoGoalConverted,
-  trackLdConversion,
   trackApplyClick,
 } from "../analytics/pinpoint.js";
 
@@ -201,8 +199,7 @@ function ChallengerHero({ siteData }) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function CareersPage({ siteData }) {
   const jobs = Array.isArray(siteData?.careers?.jobs) ? siteData.careers.jobs : [];
-  const { reactMigrationTest } = useFlags();
-  const ldClient = useLDClient();
+  const { value: reactMigrationTest } = useFeatureGate("react_migration_test");
 
   const { variation, isLoading } = useExperiment(EXPERIMENT_KEY);
   const isChallenger = variation === "challenger";
@@ -225,10 +222,7 @@ export default function CareersPage({ siteData }) {
     trackExperimentGoal(statsigClient, "careers_experiment", STATSIG_GOAL_NAME, { job_title: job?.title ?? "" });
     // 2. Pinpoint mirror
     trackVwoGoalConverted(EXPERIMENT_KEY, 1, STATSIG_GOAL_NAME, { job_title: job?.title ?? "" });
-    // 3. LaunchDarkly metric
-    ldClient?.track("conversion", { source: "react-careers", action: "apply-click", variation: variationLabel, jobTitle: job?.title });
-    trackLdConversion("conversion", { source: "react-careers", variation_label: variationLabel });
-    // 4. Pinpoint apply click
+    // 3. Pinpoint apply click
     trackApplyClick(job?.title, variationLabel, platform);
 
     setAppliedJob(job);

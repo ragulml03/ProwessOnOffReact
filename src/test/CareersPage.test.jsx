@@ -2,11 +2,6 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import CareersPage from "../pages/CareersPage";
 
-vi.mock("launchdarkly-react-client-sdk", () => ({
-  useFlags: () => ({ reactMigrationTest: true }),
-  useLDClient: () => ({ track: vi.fn() }),
-}));
-
 vi.mock("../hooks/useExperiment", () => ({
   useExperiment: vi.fn(),
   trackExperimentGoal: vi.fn(),
@@ -15,7 +10,6 @@ vi.mock("../hooks/useExperiment", () => ({
 vi.mock("../analytics/pinpoint.js", () => ({
   trackVwoVariationAssigned: vi.fn(),
   trackVwoGoalConverted: vi.fn(),
-  trackLdConversion: vi.fn(),
   trackApplyClick: vi.fn(),
 }));
 

@@ -3,11 +3,6 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { MemoryRouter } from "react-router-dom";
 import ProfilePage from "../pages/ProfilePage";
 
-vi.mock("launchdarkly-react-client-sdk", () => ({
-  useFlags: () => ({}),
-  useLDClient: () => ({ track: vi.fn() }),
-}));
-
 vi.mock("../hooks/useExperiment", () => ({
   useExperiment: vi.fn(),
   trackExperimentGoal: vi.fn(),
@@ -16,8 +11,6 @@ vi.mock("../hooks/useExperiment", () => ({
 vi.mock("../analytics/pinpoint.js", () => ({
   trackVwoVariationAssigned: vi.fn(),
   trackVwoGoalConverted: vi.fn(),
-  trackLdConversion: vi.fn(),
-  trackLdFlagEvaluated: vi.fn(),
   trackProfileAction: vi.fn(),
 }));
 

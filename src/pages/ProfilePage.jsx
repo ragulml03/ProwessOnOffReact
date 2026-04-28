@@ -1,14 +1,11 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { useFlags, useLDClient } from "launchdarkly-react-client-sdk";
+import { useStatsigClient } from "@statsig/react-bindings";
 import ReactBadge from "../components/ReactBadge";
 import { useExperiment, trackExperimentGoal } from "../hooks/useExperiment";
-import { useStatsigClient } from "@statsig/react-bindings";
 import {
   trackVwoVariationAssigned,
   trackVwoGoalConverted,
-  trackLdConversion,
-  trackLdFlagEvaluated,
   trackProfileAction as trackProfileActionPinpoint,
 } from "../analytics/pinpoint.js";
 
@@ -128,8 +125,6 @@ export default function ProfilePage({ siteData }) {
   const user = siteData?.profile?.user ?? {};
   const stats = Array.isArray(siteData?.profile?.stats) ? siteData.profile.stats : [];
   const flags = Array.isArray(siteData?.profile?.recentFlags) ? siteData.profile.recentFlags : [];
-  useFlags();
-  const ldClient = useLDClient();
 
   // ── Statsig Experiment: Profile stat card layout ──────────────────────────
   const { variation: profileVariation } = useExperiment(EXPERIMENT_KEY);
@@ -144,12 +139,6 @@ export default function ProfilePage({ siteData }) {
     trackVwoVariationAssigned(EXPERIMENT_KEY, profileVariation, variationLabel, "profile");
   }, [profileVariation, isProfileChallenger]);
 
-  // Event 5 — fire once when LD flags are available
-  useEffect(() => {
-    const userId = window.AB_TEST_DATA?.user_id ?? "";
-    trackLdFlagEvaluated("reactMigrationTest", true, userId);
-  }, []);
-
   const trackProfileAction = (action) => {
     const variationLabel = isProfileChallenger ? "Challenger" : "Control";
     const platform = window.AB_TEST_DATA?.platform_version ?? "react_modern";
@@ -158,10 +147,7 @@ export default function ProfilePage({ siteData }) {
     trackExperimentGoal(statsigClient, "profile_experiment", STATSIG_GOAL_NAME, { action });
     // 2. Pinpoint mirror
     trackVwoGoalConverted(EXPERIMENT_KEY, 1, STATSIG_GOAL_NAME, { action });
-    // 3. LD conversion + Pinpoint mirror
-    ldClient?.track("profile-action", { source: "react-profile", action, variation: variationLabel });
-    trackLdConversion("profile-action", { source: "react-profile", variation_label: variationLabel });
-    // 4. Pinpoint profile action
+    // 3. Pinpoint profile action
     trackProfileActionPinpoint(action, variationLabel, platform);
 
     setActiveAction(action);

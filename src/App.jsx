@@ -1,9 +1,7 @@
 import { useEffect, useState } from "react";
-import { withLDProvider } from "launchdarkly-react-client-sdk";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { StatsigProvider } from "@statsig/react-bindings";
 import AppShell from "./layouts/AppShell";
-import { getLaunchDarklyConfig } from "./launchDarkly";
 import CareersPage from "./pages/CareersPage";
 import NotFoundPage from "./pages/NotFoundPage";
 import ProfilePage from "./pages/ProfilePage";
@@ -68,10 +66,4 @@ function App() {
   );
 }
 
-const { clientSideId, context } = getLaunchDarklyConfig();
-
-export default withLDProvider({
-  clientSideID: clientSideId,
-  context,
-  options: { streaming: true },
-})(App);
+export default App;
