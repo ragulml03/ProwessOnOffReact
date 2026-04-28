@@ -93,13 +93,18 @@ function evaluateExperiment(spec, experimentName, userId) {
 
   const bucket = getBucketValue(userId, exp.salt ?? experimentName);
 
-  // Find which group this user falls in
+  // Cumulative comparison — each group covers a contiguous slice of 1-10000
+  let cumulative = 0;
   for (const group of exp.groups ?? []) {
-    const size = Math.round((group.size / 100) * 10000);
-    if (bucket <= size) {
-      // Return the "variation" parameter value (control or challenger)
-      const variationParam = group.parameterValues?.variation ?? group.name;
-      return variationParam;
+    cumulative += Math.round((group.size / 100) * 10000);
+    if (bucket <= cumulative) {
+      // Prefer explicit "variation" parameter; fall back to group name normalised to
+      // "control" / "challenger" so React's variation === "challenger" check works
+      // regardless of how the group was named in the Statsig dashboard.
+      const param = group.parameterValues?.variation;
+      if (param != null && param !== "") return param;
+      const name = (group.name ?? "").toLowerCase();
+      return name === "control" ? "control" : "challenger";
     }
   }
   return null;
