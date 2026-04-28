@@ -12,6 +12,18 @@ import { trackPageView } from "./analytics/pinpoint.js";
 
 const STATSIG_CLIENT_KEY = import.meta.env.VITE_STATSIG_CLIENT_KEY ?? "";
 
+// Returns real user ID if available, otherwise a stable per-browser UUID.
+// Avoids logging every visitor as "anonymous" which breaks Statsig health checks.
+function getStableUserId() {
+  const realId = window.AB_TEST_DATA?.user_id;
+  if (realId && realId !== "anonymous") return realId;
+  const stored = localStorage.getItem("prowess_anon_id");
+  if (stored) return stored;
+  const newId = crypto.randomUUID();
+  localStorage.setItem("prowess_anon_id", newId);
+  return newId;
+}
+
 function App() {
   const [siteData, setSiteData] = useState(null);
   const location = useLocation();
@@ -20,10 +32,9 @@ function App() {
     fetchSiteData().then((data) => setSiteData(data));
   }, []);
 
-  // Write real user ID cookie so Edge Middleware can use it on next request
+  // Write stable user ID cookie so Edge Middleware uses the same ID as Statsig client
   useEffect(() => {
-    const userId = window.AB_TEST_DATA?.user_id;
-    if (!userId) return;
+    const userId = getStableUserId();
     const maxAge = 60 * 60 * 24 * 365;
     document.cookie = `prowess_user_id=${encodeURIComponent(userId)}; Path=/; Max-Age=${maxAge}; SameSite=Lax`;
   }, []);
@@ -36,7 +47,7 @@ function App() {
   }, [location.pathname]);
 
   const statsigUser = {
-    userID: window.AB_TEST_DATA?.user_id ?? "anonymous",
+    userID: getStableUserId(),
     custom: {
       platform_version: window.AB_TEST_DATA?.platform_version ?? "react_modern",
       migration_group:  window.AB_TEST_DATA?.migration_group  ?? "",
