@@ -134,7 +134,8 @@ export default function ProfilePage({ siteData }) {
   // ── Statsig Experiment: Profile stat card layout ──────────────────────────
   const { variation: profileVariation } = useExperiment(EXPERIMENT_KEY);
   const isProfileChallenger = profileVariation === "challenger";
-  const { client: statsigClient } = useStatsigClient();
+  let statsigClient = null;
+  try { statsigClient = useStatsigClient()?.client ?? null; } catch { /* no provider */ }
 
   const [activeAction, setActiveAction] = useState(null);
 

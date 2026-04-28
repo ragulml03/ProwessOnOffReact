@@ -206,7 +206,8 @@ export default function CareersPage({ siteData }) {
 
   const { variation, isLoading } = useExperiment(EXPERIMENT_KEY);
   const isChallenger = variation === "challenger";
-  const { client: statsigClient } = useStatsigClient();
+  let statsigClient = null;
+  try { statsigClient = useStatsigClient()?.client ?? null; } catch { /* no provider */ }
 
   const [appliedJob, setAppliedJob] = useState(null);
 
