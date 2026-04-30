@@ -3,8 +3,8 @@ import { useStatsigClient } from "@statsig/react-bindings";
 import ReactBadge from "../components/ReactBadge";
 import { useExperiment, trackExperimentGoal } from "../hooks/useExperiment";
 import {
-  trackVwoVariationAssigned,
-  trackVwoGoalConverted,
+  trackStatsigVariationAssigned,
+  trackStatsigGoalConverted,
   trackApplyClick,
 } from "../analytics/pinpoint.js";
 
@@ -185,7 +185,7 @@ function ChallengerHero({ siteData }) {
         <div className="inline-flex items-center gap-2 bg-emerald-400/10 border border-emerald-400/30 text-emerald-300 text-xs font-semibold px-4 py-2 rounded-full mb-8 uppercase tracking-widest">
           Actively Hiring — Join the Mission
         </div>
-        <h1 className="text-5xl md:text-6xl font-extrabold mb-5 leading-tight bg-gradient-to-r from-white to-[#405BFF] bg-clip-text text-transparent">
+        <h1 className="text-5xl md:text-6xl font-extrabold mb-5 leading-tight bg-linear-to-r from-white to-[#405BFF] bg-clip-text text-transparent">
           Shape What&apos;s Next
         </h1>
         <p className="text-white/60 text-xl leading-relaxed">
@@ -210,7 +210,7 @@ export default function CareersPage({ siteData }) {
   useEffect(() => {
     if (isLoading) return;
     const variationLabel = isChallenger ? "Challenger" : "Control";
-    trackVwoVariationAssigned(EXPERIMENT_KEY, variation, variationLabel, "careers");
+    trackStatsigVariationAssigned(EXPERIMENT_KEY, variation, variationLabel, "careers");
   }, [isLoading, variation, isChallenger]);
 
   const trackApply = (job) => {
@@ -220,7 +220,7 @@ export default function CareersPage({ siteData }) {
     // 1. Statsig goal event
     trackExperimentGoal(statsigClient, "careers_experiment", STATSIG_GOAL_NAME, { job_title: job?.title ?? "" });
     // 2. Pinpoint mirror
-    trackVwoGoalConverted(EXPERIMENT_KEY, 1, STATSIG_GOAL_NAME, { job_title: job?.title ?? "" });
+    trackStatsigGoalConverted(EXPERIMENT_KEY, STATSIG_GOAL_NAME, variationLabel, { job_title: job?.title ?? "" });
     // 3. Pinpoint apply click
     trackApplyClick(job?.title, variationLabel, platform);
 

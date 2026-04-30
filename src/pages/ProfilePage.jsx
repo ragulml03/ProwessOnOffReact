@@ -4,8 +4,8 @@ import { useStatsigClient } from "@statsig/react-bindings";
 import ReactBadge from "../components/ReactBadge";
 import { useExperiment, trackExperimentGoal } from "../hooks/useExperiment";
 import {
-  trackVwoVariationAssigned,
-  trackVwoGoalConverted,
+  trackStatsigVariationAssigned,
+  trackStatsigGoalConverted,
   trackProfileAction as trackProfileActionPinpoint,
 } from "../analytics/pinpoint.js";
 
@@ -136,7 +136,7 @@ export default function ProfilePage({ siteData }) {
   // Fire once when experiment resolves — log to Pinpoint for funnel tracking
   useEffect(() => {
     const variationLabel = isProfileChallenger ? "Challenger" : "Control";
-    trackVwoVariationAssigned(EXPERIMENT_KEY, profileVariation, variationLabel, "profile");
+    trackStatsigVariationAssigned(EXPERIMENT_KEY, profileVariation, variationLabel, "profile");
   }, [profileVariation, isProfileChallenger]);
 
   const trackProfileAction = (action) => {
@@ -146,7 +146,7 @@ export default function ProfilePage({ siteData }) {
     // 1. Statsig goal event
     trackExperimentGoal(statsigClient, "profile_experiment", STATSIG_GOAL_NAME, { action });
     // 2. Pinpoint mirror
-    trackVwoGoalConverted(EXPERIMENT_KEY, 1, STATSIG_GOAL_NAME, { action });
+    trackStatsigGoalConverted(EXPERIMENT_KEY, STATSIG_GOAL_NAME, variationLabel, { action });
     // 3. Pinpoint profile action
     trackProfileActionPinpoint(action, variationLabel, platform);
 

@@ -9,8 +9,8 @@ vi.mock("../hooks/useExperiment", () => ({
 }));
 
 vi.mock("../analytics/pinpoint.js", () => ({
-  trackVwoVariationAssigned: vi.fn(),
-  trackVwoGoalConverted: vi.fn(),
+  trackStatsigVariationAssigned: vi.fn(),
+  trackStatsigGoalConverted: vi.fn(),
   trackProfileAction: vi.fn(),
 }));
 
