@@ -3,21 +3,14 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { MemoryRouter } from "react-router-dom";
 import ProfilePage from "../pages/ProfilePage";
 
-vi.mock("launchdarkly-react-client-sdk", () => ({
-  useFlags: () => ({}),
-  useLDClient: () => ({ track: vi.fn() }),
-}));
-
-vi.mock("../hooks/useVwoExperiment", () => ({
-  useVwoExperiment: vi.fn(),
-  trackVwoGoal: vi.fn(),
+vi.mock("../hooks/useExperiment", () => ({
+  useExperiment: vi.fn(),
+  trackExperimentGoal: vi.fn(),
 }));
 
 vi.mock("../analytics/pinpoint.js", () => ({
-  trackVwoVariationAssigned: vi.fn(),
-  trackVwoGoalConverted: vi.fn(),
-  trackLdConversion: vi.fn(),
-  trackLdFlagEvaluated: vi.fn(),
+  trackStatsigVariationAssigned: vi.fn(),
+  trackStatsigGoalConverted: vi.fn(),
   trackProfileAction: vi.fn(),
 }));
 
@@ -25,7 +18,7 @@ vi.mock("../components/ReactBadge", () => ({
   default: () => <div data-testid="react-badge" />,
 }));
 
-import { useVwoExperiment } from "../hooks/useVwoExperiment";
+import { useExperiment } from "../hooks/useExperiment";
 
 const sampleSiteData = {
   profile: {
@@ -62,47 +55,47 @@ describe("ProfilePage", () => {
   beforeEach(() => vi.clearAllMocks());
 
   it("renders user name", () => {
-    useVwoExperiment.mockReturnValue({ variationId: 1, isLoading: false });
+    useExperiment.mockReturnValue({ variation: "control", isLoading: false });
     renderProfile();
     expect(screen.getByText("Jane Doe")).toBeInTheDocument();
   });
 
   it("renders Control stat cards without trend indicators", () => {
-    useVwoExperiment.mockReturnValue({ variationId: 1, isLoading: false });
+    useExperiment.mockReturnValue({ variation: "control", isLoading: false });
     renderProfile();
     expect(screen.getByText("Projects")).toBeInTheDocument();
     expect(screen.queryByText(/vs last month/)).not.toBeInTheDocument();
   });
 
   it("renders Challenger stat cards with trend indicators", () => {
-    useVwoExperiment.mockReturnValue({ variationId: 2, isLoading: false });
+    useExperiment.mockReturnValue({ variation: "challenger", isLoading: false });
     renderProfile();
     expect(screen.getAllByText("vs last month").length).toBeGreaterThan(0);
   });
 
   it("renders recent flags by name", () => {
-    useVwoExperiment.mockReturnValue({ variationId: 1, isLoading: false });
+    useExperiment.mockReturnValue({ variation: "control", isLoading: false });
     renderProfile();
     expect(screen.getByText("react-migration-test")).toBeInTheDocument();
     expect(screen.getByText("dark-mode")).toBeInTheDocument();
   });
 
   it("opens Control modal when Edit Profile is clicked", () => {
-    useVwoExperiment.mockReturnValue({ variationId: 1, isLoading: false });
+    useExperiment.mockReturnValue({ variation: "control", isLoading: false });
     renderProfile();
     fireEvent.click(screen.getByText("Edit Profile"));
     expect(screen.getByText("Profile is Up to Date")).toBeInTheDocument();
   });
 
   it("opens Challenger modal when Edit Profile is clicked", () => {
-    useVwoExperiment.mockReturnValue({ variationId: 2, isLoading: false });
+    useExperiment.mockReturnValue({ variation: "challenger", isLoading: false });
     renderProfile();
     fireEvent.click(screen.getByText("Edit Profile"));
     expect(screen.getByText("You're All Set!")).toBeInTheDocument();
   });
 
   it("closes modal when Got it button is clicked", () => {
-    useVwoExperiment.mockReturnValue({ variationId: 1, isLoading: false });
+    useExperiment.mockReturnValue({ variation: "control", isLoading: false });
     renderProfile();
     fireEvent.click(screen.getByText("Edit Profile"));
     fireEvent.click(screen.getByText("Got it!"));
@@ -110,7 +103,7 @@ describe("ProfilePage", () => {
   });
 
   it("handles missing siteData gracefully", () => {
-    useVwoExperiment.mockReturnValue({ variationId: 1, isLoading: false });
+    useExperiment.mockReturnValue({ variation: "control", isLoading: false });
     render(
       <MemoryRouter>
         <ProfilePage siteData={null} />

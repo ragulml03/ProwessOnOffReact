@@ -1,18 +1,15 @@
 import { useState, useEffect } from "react";
-import { useFlags, useLDClient } from "launchdarkly-react-client-sdk";
+import { useStatsigClient } from "@statsig/react-bindings";
 import ReactBadge from "../components/ReactBadge";
-import { useVwoExperiment, trackVwoGoal } from "../hooks/useVwoExperiment";
+import { useExperiment, trackExperimentGoal } from "../hooks/useExperiment";
 import {
-  trackVwoVariationAssigned,
-  trackVwoGoalConverted,
-  trackLdConversion,
+  trackStatsigVariationAssigned,
+  trackStatsigGoalConverted,
   trackApplyClick,
 } from "../analytics/pinpoint.js";
 
-const VWO_CAREERS_CAMPAIGN_ID = 4;
-// Internal campaign goal sequence ID (first goal = 1). NOT the Data360 metricId (2424005).
-const VWO_APPLY_GOAL_ID = 1;
-const VWO_APPLY_GOAL_IDENTIFIER = "vwo_dom_click";
+const EXPERIMENT_KEY    = "careers";
+const STATSIG_GOAL_NAME = "apply_click";
 
 // ─── Skeleton loader ─────────────────────────────────────────────────────────
 function CareersPageSkeleton() {
@@ -188,7 +185,7 @@ function ChallengerHero({ siteData }) {
         <div className="inline-flex items-center gap-2 bg-emerald-400/10 border border-emerald-400/30 text-emerald-300 text-xs font-semibold px-4 py-2 rounded-full mb-8 uppercase tracking-widest">
           Actively Hiring — Join the Mission
         </div>
-        <h1 className="text-5xl md:text-6xl font-extrabold mb-5 leading-tight bg-gradient-to-r from-white to-[#405BFF] bg-clip-text text-transparent">
+        <h1 className="text-5xl md:text-6xl font-extrabold mb-5 leading-tight bg-linear-to-r from-white to-[#405BFF] bg-clip-text text-transparent">
           Shape What&apos;s Next
         </h1>
         <p className="text-white/60 text-xl leading-relaxed">
@@ -202,37 +199,29 @@ function ChallengerHero({ siteData }) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function CareersPage({ siteData }) {
   const jobs = Array.isArray(siteData?.careers?.jobs) ? siteData.careers.jobs : [];
-  const { reactMigrationTest } = useFlags();
-  const ldClient = useLDClient();
 
-  const { variationId, isLoading } = useVwoExperiment(VWO_CAREERS_CAMPAIGN_ID);
-  const isChallenger = variationId === 2;
+  const { variation, isLoading } = useExperiment(EXPERIMENT_KEY);
+  const isChallenger = variation === "challenger";
+  const { client: statsigClient } = useStatsigClient();
 
   const [appliedJob, setAppliedJob] = useState(null);
 
-  // Event 3 — fire once when VWO resolves which variation this user is in
+  // Fire once when experiment resolves — log to Pinpoint for funnel tracking
   useEffect(() => {
-    if (variationId == null) return;
-    const variationLabel = variationId === 2 ? "Challenger (Variation 2)" : "Control (Variation 1)";
-    trackVwoVariationAssigned(VWO_CAREERS_CAMPAIGN_ID, variationId, variationLabel, "careers");
-  }, [variationId]);
+    if (isLoading) return;
+    const variationLabel = isChallenger ? "Challenger" : "Control";
+    trackStatsigVariationAssigned(EXPERIMENT_KEY, variation, variationLabel, "careers");
+  }, [isLoading, variation, isChallenger]);
 
   const trackApply = (job) => {
-    const variationLabel = isChallenger ? "Challenger (Variation 2)" : "Control (Variation 1)";
+    const variationLabel = isChallenger ? "Challenger" : "Control";
     const platform = window.AB_TEST_DATA?.platform_version ?? "react_modern";
-    console.log(`[A/B] Apply clicked — ${variationLabel} — Job: ${job?.title}`);
 
-    // 1. VWO goal conversion
-    trackVwoGoal(VWO_CAREERS_CAMPAIGN_ID, VWO_APPLY_GOAL_ID, VWO_APPLY_GOAL_IDENTIFIER);
-    // Event 4 — mirror VWO goal to Pinpoint
-    trackVwoGoalConverted(VWO_CAREERS_CAMPAIGN_ID, VWO_APPLY_GOAL_ID, variationLabel, { job_title: job?.title ?? "" });
-
-    // 2. LaunchDarkly metric
-    ldClient?.track("conversion", { source: "react-careers", action: "apply-click", vwoVariation: variationId, variationLabel, jobTitle: job?.title });
-    // Event 6 — mirror LD conversion to Pinpoint
-    trackLdConversion("conversion", { source: "react-careers", variation_label: variationLabel });
-
-    // Event 7 — apply_click with full context
+    // 1. Statsig goal event
+    trackExperimentGoal(statsigClient, "careers_experiment", STATSIG_GOAL_NAME, { job_title: job?.title ?? "" });
+    // 2. Pinpoint mirror
+    trackStatsigGoalConverted(EXPERIMENT_KEY, STATSIG_GOAL_NAME, variationLabel, { job_title: job?.title ?? "" });
+    // 3. Pinpoint apply click
     trackApplyClick(job?.title, variationLabel, platform);
 
     setAppliedJob(job);
@@ -254,13 +243,6 @@ export default function CareersPage({ siteData }) {
         <ChallengerHero siteData={siteData} />
       ) : (
         <ControlHero siteData={siteData} />
-      )}
-
-      {reactMigrationTest && (
-        <div className="text-center text-xs tracking-wider uppercase text-emerald-300 -mt-8 mb-4">
-          Live Experiment Active — VWO Variation {variationId ?? "?"}{" "}
-          ({isChallenger ? "Challenger" : "Control"})
-        </div>
       )}
 
       <section className="pb-28 px-6">
