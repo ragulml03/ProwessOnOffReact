@@ -117,12 +117,12 @@ jobs:
             echo "LD_API_KEY secret not set — skipping LD stale flag check."
           fi
 
-  # ─── 4. Deploy Preview to Vercel (on Pull Request) ──────────────────────────
+  # ─── 4. Deploy Preview to Vercel (on Pull Request or feature/statsig-migration push) ──
   deploy-preview:
     name: Deploy Preview (Vercel)
     needs: [quality-gate, flag-review]
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/feature/statsig-migration')
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
