@@ -22,7 +22,7 @@ export default function AppShell({ children }) {
             </Link>
             <Link
               to="/app/profile"
-              className="rounded-lg bg-[#405BFF] px-4 py-2 text-sm font-medium text-white transition-colors duration-150 hover:bg-[#3350EE]"
+              className="rounded-lg bg-[#7C3AED] px-4 py-2 text-sm font-medium text-white transition-colors duration-150 hover:bg-[#6D28D9]"
             >
               Profile
             </Link>
