@@ -147,7 +147,7 @@ jobs:
     name: Deploy Production (Vercel)
     needs: [quality-gate, flag-review]
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/feature/statsig-migration')
     environment:
       name: production
       url: https://prowess-on-off-react.vercel.app
