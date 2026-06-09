@@ -41,8 +41,9 @@ export function useExperiment(experimentKey) {
   }
 
   const [variation, setVariation] = useState(serverVariation ?? "control");
-  // Only show loading if we have no cookie AND have a Statsig client to resolve from
-  const [isLoading, setIsLoading] = useState(serverVariation == null && statsigClient != null);
+  // Demo branch: isLoading always false so control renders immediately.
+  // This makes the control → challenger snap visible without a skeleton hiding it.
+  const [isLoading, setIsLoading] = useState(false);
   const resolvedRef = useRef(serverVariation != null);
 
   useEffect(() => {
