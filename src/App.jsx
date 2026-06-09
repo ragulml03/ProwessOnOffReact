@@ -5,7 +5,7 @@ import AppShell from "./layouts/AppShell";
 import CareersPage from "./pages/CareersPage";
 import NotFoundPage from "./pages/NotFoundPage";
 import ProfilePage from "./pages/ProfilePage";
-import { fetchSiteData, fallbackSiteData } from "./services/siteDataApi";
+import { fetchSiteData } from "./services/siteDataApi";
 import { trackPageView } from "./analytics/pinpoint.js";
 
 const STATSIG_CLIENT_KEY = import.meta.env.VITE_STATSIG_CLIENT_KEY ?? "";
@@ -23,7 +23,7 @@ function getStableUserId() {
 }
 
 function App() {
-  const [siteData, setSiteData] = useState(fallbackSiteData);
+  const [siteData, setSiteData] = useState(null);
   const location = useLocation();
 
   useEffect(() => {
