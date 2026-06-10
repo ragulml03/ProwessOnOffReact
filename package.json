@@ -13,6 +13,7 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
+    "@newrelic/browser-agent": "^1.316.0",
     "@statsig/js-client": "^3.33.0",
     "@statsig/react-bindings": "^3.33.0",
     "@testing-library/dom": "^10.4.1",

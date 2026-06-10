@@ -1,4 +1,5 @@
 import mixpanel from "mixpanel-browser";
+import { pageAction, noticeError } from "./newrelic.js";
 
 // EU data residency — matches eu.mixpanel.com account
 mixpanel.init(import.meta.env.VITE_MIXPANEL_TOKEN ?? "", {
@@ -23,17 +24,25 @@ function track(name, properties = {}) {
 // ─── 1. Page view ─────────────────────────────────────────────────────────────
 export function trackPageView(page, platform, migrationGroup) {
   track("page_view", { page, platform, migration_group: migrationGroup ?? "" });
+  pageAction("page_view", { page, platform, migration_group: migrationGroup ?? "" });
 }
 
 // ─── 2. Core Web Vital ────────────────────────────────────────────────────────
 export function trackWebVital(name, value, rating, platform) {
   track("core_web_vital", { metric_name: name, value: Math.round(value), rating, platform });
+  pageAction("core_web_vital", { metric_name: name, value: Math.round(value), rating, platform });
 }
 
 // ─── 3. Statsig variation assigned ───────────────────────────────────────────
 export function trackStatsigVariationAssigned(experimentKey, variation, variationLabel, page) {
   track("statsig_variation_assigned", {
     experiment_key: experimentKey,
+    variation,
+    variation_label: variationLabel,
+    page,
+  });
+  pageAction("experiment_assigned", {
+    experiment_key:  experimentKey,
     variation,
     variation_label: variationLabel,
     page,
@@ -48,19 +57,28 @@ export function trackStatsigGoalConverted(experimentKey, goalName, variationLabe
     variation_label: variationLabel,
     ...context,
   });
+  pageAction("experiment_goal_converted", {
+    experiment_key:  experimentKey,
+    goal_name:       goalName,
+    variation_label: variationLabel,
+    ...context,
+  });
 }
 
 // ─── 5. Apply click (Careers page) ───────────────────────────────────────────
 export function trackApplyClick(jobTitle, variationLabel, platform) {
   track("apply_click", { job_title: jobTitle ?? "", variation_label: variationLabel, platform });
+  pageAction("apply_clicked", { job_title: jobTitle ?? "", variation_label: variationLabel, platform });
 }
 
 // ─── 6. Profile action ────────────────────────────────────────────────────────
 export function trackProfileAction(actionType, variationLabel, platform) {
   track("profile_action", { action: actionType, variation_label: variationLabel, platform });
+  pageAction("profile_action", { action: actionType, variation_label: variationLabel, platform });
 }
 
 // ─── 7. JS error (crash analytics) ───────────────────────────────────────────
 export function trackJsError(message, context = {}) {
   track("js_error", { message: String(message).slice(0, 300), ...context });
+  noticeError(message, context);
 }

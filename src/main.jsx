@@ -1,3 +1,8 @@
+// New Relic must initialise before React so the agent captures all
+// page lifecycle events from the very first paint onward.
+import { initNewRelic } from "./analytics/newrelic.js";
+initNewRelic();
+
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
