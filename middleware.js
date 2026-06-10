@@ -92,7 +92,12 @@ export default async function middleware(request) {
 
   if (setCookies.length === 0) return next();
 
-  return next({ headers: { "Set-Cookie": setCookies.join(", ") } });
+  // Each Set-Cookie must be a separate header — joining with "," breaks cookie parsing.
+  const responseHeaders = new Headers();
+  for (const cookie of setCookies) {
+    responseHeaders.append("Set-Cookie", cookie);
+  }
+  return next({ headers: responseHeaders });
 }
 
 export const config = {
