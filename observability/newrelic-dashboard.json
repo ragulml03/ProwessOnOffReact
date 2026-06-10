@@ -1,0 +1,251 @@
+{
+  "name": "OffOn — AB Test Observability",
+  "description": "Careers experiment: variation split, conversions, performance and errors",
+  "permissions": "PUBLIC_READ_WRITE",
+  "pages": [
+    {
+      "name": "Experiment Results",
+      "description": "Statsig AB test tracking via New Relic custom PageAction events",
+      "widgets": [
+
+        {
+          "title": "Total Sessions",
+          "layout": { "column": 1, "row": 1, "width": 3, "height": 2 },
+          "visualization": { "id": "viz.billboard" },
+          "rawConfiguration": {
+            "nrqlQueries": [{
+              "accountIds": [8157273],
+              "query": "SELECT uniqueCount(session) AS 'Sessions' FROM PageView SINCE 7 days ago"
+            }],
+            "thresholds": []
+          }
+        },
+
+        {
+          "title": "Experiment Assignments",
+          "layout": { "column": 4, "row": 1, "width": 3, "height": 2 },
+          "visualization": { "id": "viz.billboard" },
+          "rawConfiguration": {
+            "nrqlQueries": [{
+              "accountIds": [8157273],
+              "query": "SELECT count(*) AS 'Assigned' FROM PageAction WHERE actionName = 'experiment_assigned' SINCE 7 days ago"
+            }],
+            "thresholds": []
+          }
+        },
+
+        {
+          "title": "Apply Clicks (Total)",
+          "layout": { "column": 7, "row": 1, "width": 3, "height": 2 },
+          "visualization": { "id": "viz.billboard" },
+          "rawConfiguration": {
+            "nrqlQueries": [{
+              "accountIds": [8157273],
+              "query": "SELECT count(*) AS 'Clicks' FROM PageAction WHERE actionName = 'apply_clicked' SINCE 7 days ago"
+            }],
+            "thresholds": []
+          }
+        },
+
+        {
+          "title": "Overall Conversion Rate",
+          "layout": { "column": 10, "row": 1, "width": 3, "height": 2 },
+          "visualization": { "id": "viz.billboard" },
+          "rawConfiguration": {
+            "nrqlQueries": [{
+              "accountIds": [8157273],
+              "query": "SELECT percentage(count(*), WHERE actionName = 'apply_clicked') AS 'Conversion %' FROM PageAction WHERE actionName IN ('experiment_assigned','apply_clicked') SINCE 7 days ago"
+            }],
+            "thresholds": []
+          }
+        },
+
+        {
+          "title": "Variation Split (Assignments)",
+          "layout": { "column": 1, "row": 3, "width": 4, "height": 3 },
+          "visualization": { "id": "viz.pie" },
+          "rawConfiguration": {
+            "nrqlQueries": [{
+              "accountIds": [8157273],
+              "query": "SELECT count(*) FROM PageAction WHERE actionName = 'experiment_assigned' FACET variation SINCE 7 days ago"
+            }]
+          }
+        },
+
+        {
+          "title": "Apply Clicks by Variation",
+          "layout": { "column": 5, "row": 3, "width": 4, "height": 3 },
+          "visualization": { "id": "viz.bar" },
+          "rawConfiguration": {
+            "nrqlQueries": [{
+              "accountIds": [8157273],
+              "query": "SELECT count(*) FROM PageAction WHERE actionName = 'apply_clicked' FACET variation_label SINCE 7 days ago"
+            }]
+          }
+        },
+
+        {
+          "title": "Conversion Rate by Variation",
+          "layout": { "column": 9, "row": 3, "width": 4, "height": 3 },
+          "visualization": { "id": "viz.bar" },
+          "rawConfiguration": {
+            "nrqlQueries": [{
+              "accountIds": [8157273],
+              "query": "SELECT count(*) FROM PageAction WHERE actionName IN ('experiment_assigned','apply_clicked') FACET actionName, variation SINCE 7 days ago"
+            }]
+          }
+        },
+
+        {
+          "title": "Assignments & Conversions Over Time",
+          "layout": { "column": 1, "row": 6, "width": 8, "height": 3 },
+          "visualization": { "id": "viz.line" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [8157273],
+                "query": "SELECT count(*) FROM PageAction WHERE actionName = 'experiment_assigned' FACET variation TIMESERIES 1 hour SINCE 7 days ago"
+              },
+              {
+                "accountIds": [8157273],
+                "query": "SELECT count(*) FROM PageAction WHERE actionName = 'apply_clicked' FACET variation_label TIMESERIES 1 hour SINCE 7 days ago"
+              }
+            ]
+          }
+        },
+
+        {
+          "title": "Experiment Funnel",
+          "layout": { "column": 9, "row": 6, "width": 4, "height": 3 },
+          "visualization": { "id": "viz.table" },
+          "rawConfiguration": {
+            "nrqlQueries": [{
+              "accountIds": [8157273],
+              "query": "SELECT count(*) AS 'Count' FROM PageAction WHERE actionName IN ('experiment_assigned','apply_clicked') FACET variation, actionName SINCE 7 days ago"
+            }]
+          }
+        }
+
+      ]
+    },
+
+    {
+      "name": "Performance",
+      "description": "Core Web Vitals and page load timing",
+      "widgets": [
+
+        {
+          "title": "LCP — Largest Contentful Paint",
+          "layout": { "column": 1, "row": 1, "width": 3, "height": 2 },
+          "visualization": { "id": "viz.billboard" },
+          "rawConfiguration": {
+            "nrqlQueries": [{
+              "accountIds": [8157273],
+              "query": "SELECT average(largestContentfulPaint) AS 'LCP (s)' FROM PageViewTiming SINCE 24 hours ago"
+            }],
+            "thresholds": [
+              { "alertSeverity": "NOT_ALERTING", "value": 2.5 },
+              { "alertSeverity": "WARNING",      "value": 4.0 }
+            ]
+          }
+        },
+
+        {
+          "title": "CLS — Cumulative Layout Shift",
+          "layout": { "column": 4, "row": 1, "width": 3, "height": 2 },
+          "visualization": { "id": "viz.billboard" },
+          "rawConfiguration": {
+            "nrqlQueries": [{
+              "accountIds": [8157273],
+              "query": "SELECT average(cumulativeLayoutShift) AS 'CLS' FROM PageViewTiming SINCE 24 hours ago"
+            }],
+            "thresholds": [
+              { "alertSeverity": "NOT_ALERTING", "value": 0.1 },
+              { "alertSeverity": "WARNING",      "value": 0.25 }
+            ]
+          }
+        },
+
+        {
+          "title": "INP — Interaction to Next Paint",
+          "layout": { "column": 7, "row": 1, "width": 3, "height": 2 },
+          "visualization": { "id": "viz.billboard" },
+          "rawConfiguration": {
+            "nrqlQueries": [{
+              "accountIds": [8157273],
+              "query": "SELECT average(interactionToNextPaint) AS 'INP (ms)' FROM PageViewTiming SINCE 24 hours ago"
+            }],
+            "thresholds": [
+              { "alertSeverity": "NOT_ALERTING", "value": 200 },
+              { "alertSeverity": "WARNING",      "value": 500 }
+            ]
+          }
+        },
+
+        {
+          "title": "HTTP Error Rate",
+          "layout": { "column": 10, "row": 1, "width": 3, "height": 2 },
+          "visualization": { "id": "viz.billboard" },
+          "rawConfiguration": {
+            "nrqlQueries": [{
+              "accountIds": [8157273],
+              "query": "SELECT percentage(count(*), WHERE httpResponseCode >= 400) AS 'Error %' FROM AjaxRequest SINCE 24 hours ago"
+            }],
+            "thresholds": [
+              { "alertSeverity": "WARNING", "value": 5 }
+            ]
+          }
+        },
+
+        {
+          "title": "Page Load Breakdown Over Time",
+          "layout": { "column": 1, "row": 3, "width": 8, "height": 3 },
+          "visualization": { "id": "viz.area" },
+          "rawConfiguration": {
+            "nrqlQueries": [{
+              "accountIds": [8157273],
+              "query": "SELECT average(domProcessingDuration) AS 'DOM Processing', average(pageRenderingDuration) AS 'Page Rendering', average(networkDuration) AS 'Network', average(frontendDuration) AS 'Total Frontend' FROM PageView TIMESERIES AUTO SINCE 24 hours ago"
+            }]
+          }
+        },
+
+        {
+          "title": "LCP Over Time by URL",
+          "layout": { "column": 9, "row": 3, "width": 4, "height": 3 },
+          "visualization": { "id": "viz.line" },
+          "rawConfiguration": {
+            "nrqlQueries": [{
+              "accountIds": [8157273],
+              "query": "SELECT average(largestContentfulPaint) FROM PageViewTiming FACET pageUrl TIMESERIES AUTO SINCE 24 hours ago"
+            }]
+          }
+        },
+
+        {
+          "title": "Core Web Vitals Summary",
+          "layout": { "column": 1, "row": 6, "width": 6, "height": 3 },
+          "visualization": { "id": "viz.table" },
+          "rawConfiguration": {
+            "nrqlQueries": [{
+              "accountIds": [8157273],
+              "query": "SELECT average(largestContentfulPaint) AS 'LCP (s)', average(cumulativeLayoutShift) AS 'CLS', average(interactionToNextPaint) AS 'INP (ms)', average(firstContentfulPaint) AS 'FCP (s)' FROM PageViewTiming FACET pageUrl SINCE 24 hours ago"
+            }]
+          }
+        },
+
+        {
+          "title": "Failed AJAX Requests",
+          "layout": { "column": 7, "row": 6, "width": 6, "height": 3 },
+          "visualization": { "id": "viz.table" },
+          "rawConfiguration": {
+            "nrqlQueries": [{
+              "accountIds": [8157273],
+              "query": "SELECT count(*) AS 'Errors', latest(httpResponseCode) AS 'Status' FROM AjaxRequest WHERE httpResponseCode >= 400 FACET requestUrl SINCE 24 hours ago"
+            }]
+          }
+        }
+
+      ]
+    }
+  ]
+}
