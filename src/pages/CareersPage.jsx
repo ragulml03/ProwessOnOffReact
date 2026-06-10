@@ -103,7 +103,7 @@ function ApplyButton({ isChallenger, onClick }) {
   return isChallenger ? (
     <button
       onClick={onClick}
-      className="apply-btn text-sm font-semibold text-white bg-[#405BFF] hover:bg-[#3350EE] px-5 py-2 rounded-lg transition-all duration-150 whitespace-nowrap shadow-lg shadow-[#405BFF]/20"
+      className="apply-btn text-sm font-semibold text-white bg-[#10B981] hover:bg-[#059669] px-5 py-2 rounded-lg transition-all duration-150 whitespace-nowrap shadow-lg shadow-emerald-900/40"
     >
       Start Your Journey →
     </button>
@@ -120,11 +120,19 @@ function ApplyButton({ isChallenger, onClick }) {
 // ─── Job card ─────────────────────────────────────────────────────────────────
 function JobCard({ job, index, isChallenger, onApply }) {
   return (
-    <div className="group bg-white/3 border border-white/8 rounded-xl p-6 hover:bg-[#405BFF]/6 hover:border-[#405BFF]/25 transition-all duration-200 cursor-pointer">
+    <div className={`group bg-white/3 border border-white/8 rounded-xl p-6 transition-all duration-200 cursor-pointer
+      ${isChallenger
+        ? "hover:bg-emerald-400/8 hover:border-emerald-400/25"
+        : "hover:bg-[#405BFF]/6 hover:border-[#405BFF]/25"
+      }`}>
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div className="flex-1">
           <div className="flex flex-wrap items-center gap-2 mb-2">
-            <span className="text-xs font-semibold text-[#405BFF] bg-[#405BFF]/10 border border-[#405BFF]/20 px-2.5 py-1 rounded-full">
+            <span className={`text-xs font-semibold px-2.5 py-1 rounded-full border
+              ${isChallenger
+                ? "text-emerald-300 bg-emerald-300/10 border-emerald-300/20"
+                : "text-[#405BFF] bg-[#405BFF]/10 border-[#405BFF]/20"
+              }`}>
               {job.department ?? "Engineering"}
             </span>
             <span className="text-xs text-white/30 bg-white/5 border border-white/8 px-2.5 py-1 rounded-full">
@@ -182,13 +190,13 @@ function ChallengerHero({ siteData }) {
     <section className="pt-24 pb-16 px-6">
       <div className="mx-auto max-w-3xl text-center">
         <ReactBadge />
-        <div className="inline-flex items-center gap-2 bg-emerald-400/10 border border-emerald-400/30 text-emerald-300 text-xs font-semibold px-4 py-2 rounded-full mb-8 uppercase tracking-widest">
-          Actively Hiring — Join the Mission
+        <div className="inline-flex items-center gap-2 bg-emerald-400/15 border border-emerald-400/40 text-emerald-300 text-xs font-semibold px-4 py-2 rounded-full mb-8 uppercase tracking-widest">
+          We&apos;re Growing Fast
         </div>
-        <h1 className="text-5xl md:text-6xl font-extrabold mb-5 leading-tight bg-linear-to-r from-white to-[#405BFF] bg-clip-text text-transparent">
+        <h1 className="text-5xl md:text-6xl font-extrabold mb-5 leading-tight bg-linear-to-r from-white to-emerald-400 bg-clip-text text-transparent">
           Shape What&apos;s Next
         </h1>
-        <p className="text-white/60 text-xl leading-relaxed">
+        <p className="text-emerald-100/60 text-xl leading-relaxed">
           {siteData?.careers?.pageSubtitle ?? "Build the future of feature delivery with our world-class team."}
         </p>
       </div>
@@ -230,7 +238,10 @@ export default function CareersPage({ siteData }) {
   if (isLoading) return <CareersPageSkeleton />;
 
   return (
-    <>
+    <div
+      className="min-h-screen transition-colors duration-300"
+      style={isChallenger ? { backgroundColor: "#022c22" } : undefined}
+    >
       {appliedJob && (
         <ApplySuccessModal
           isChallenger={isChallenger}
@@ -247,7 +258,8 @@ export default function CareersPage({ siteData }) {
 
       <section className="pb-28 px-6">
         <div className="mx-auto max-w-4xl">
-          <p className="text-sm text-white/30 uppercase tracking-widest font-semibold mb-6">
+          <p className={`text-sm uppercase tracking-widest font-semibold mb-6
+            ${isChallenger ? "text-emerald-400/50" : "text-white/30"}`}>
             {jobs.length} Open Roles
           </p>
           <div className="space-y-3">
@@ -263,6 +275,6 @@ export default function CareersPage({ siteData }) {
           </div>
         </div>
       </section>
-    </>
+    </div>
   );
 }
