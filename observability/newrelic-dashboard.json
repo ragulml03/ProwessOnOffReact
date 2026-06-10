@@ -115,8 +115,62 @@
         },
 
         {
-          "title": "Experiment Funnel",
+          "title": "Experiment Funnel — All Users",
           "layout": { "column": 9, "row": 6, "width": 4, "height": 3 },
+          "visualization": { "id": "viz.funnel" },
+          "rawConfiguration": {
+            "nrqlQueries": [{
+              "accountIds": [8157273],
+              "query": "SELECT funnel(session, WHERE actionName = 'page_view' AS 'Page Viewed', WHERE actionName = 'experiment_assigned' AS 'Experiment Assigned', WHERE actionName = 'apply_clicked' AS 'Apply Clicked') FROM PageAction SINCE 7 days ago"
+            }]
+          }
+        },
+
+        {
+          "title": "Funnel — Control vs Challenger",
+          "layout": { "column": 1, "row": 9, "width": 6, "height": 3 },
+          "visualization": { "id": "viz.bar" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [8157273],
+                "query": "SELECT funnel(session, WHERE actionName = 'experiment_assigned' AND variation = 'control' AS 'Assigned (Control)', WHERE actionName = 'apply_clicked' AND variation_label = 'Control' AS 'Converted (Control)') FROM PageAction SINCE 7 days ago"
+              },
+              {
+                "accountIds": [8157273],
+                "query": "SELECT funnel(session, WHERE actionName = 'experiment_assigned' AND variation = 'challenger' AS 'Assigned (Challenger)', WHERE actionName = 'apply_clicked' AND variation_label = 'Challenger' AS 'Converted (Challenger)') FROM PageAction SINCE 7 days ago"
+              }
+            ]
+          }
+        },
+
+        {
+          "title": "Conversion Rate — Control vs Challenger",
+          "layout": { "column": 7, "row": 9, "width": 6, "height": 3 },
+          "visualization": { "id": "viz.bar" },
+          "rawConfiguration": {
+            "nrqlQueries": [{
+              "accountIds": [8157273],
+              "query": "SELECT filter(uniqueCount(session), WHERE actionName = 'apply_clicked') / uniqueCount(session) * 100 AS 'Conversion %' FROM PageAction WHERE actionName IN ('experiment_assigned','apply_clicked') FACET variation SINCE 7 days ago"
+            }]
+          }
+        },
+
+        {
+          "title": "Top Jobs Applied (by Variation)",
+          "layout": { "column": 1, "row": 12, "width": 6, "height": 3 },
+          "visualization": { "id": "viz.bar" },
+          "rawConfiguration": {
+            "nrqlQueries": [{
+              "accountIds": [8157273],
+              "query": "SELECT count(*) FROM PageAction WHERE actionName = 'apply_clicked' FACET job_title, variation_label SINCE 7 days ago"
+            }]
+          }
+        },
+
+        {
+          "title": "Experiment Activity — Detailed Table",
+          "layout": { "column": 7, "row": 12, "width": 6, "height": 3 },
           "visualization": { "id": "viz.table" },
           "rawConfiguration": {
             "nrqlQueries": [{
