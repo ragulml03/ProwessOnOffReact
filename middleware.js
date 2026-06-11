@@ -14,10 +14,33 @@ import { StatsigClient } from "@statsig/js-client";
  *  3. Initialize Statsig SDK for this user (calls Statsig's assignment API).
  *  4. Read variation via getExperiment() — exact Statsig bucketing, no hashing.
  *  5. Set cookie before HTML is served → React reads it instantly, zero flash.
+ *  6. Fire-and-forget push to New Relic Log API — no Log Drain needed.
  */
 
-const STATSIG_CLIENT_KEY = process.env.VITE_STATSIG_CLIENT_KEY ?? "";
-const ASSIGN_TIMEOUT_MS  = 1500; // fail-safe: if Statsig is slow, skip → control
+const STATSIG_CLIENT_KEY  = process.env.VITE_STATSIG_CLIENT_KEY   ?? "";
+const NR_LICENSE_KEY      = process.env.NEW_RELIC_LICENSE_KEY      ?? "";
+const NR_ACCOUNT_ID       = process.env.NEW_RELIC_ACCOUNT_ID       ?? "";
+const ASSIGN_TIMEOUT_MS   = 1500; // fail-safe: if Statsig is slow, skip → control
+
+/**
+ * Push a log entry directly to New Relic Log API.
+ * Fire-and-forget — never awaited so it adds zero latency to the request.
+ * Works on Vercel free plan (outbound fetch, no Log Drain needed).
+ */
+function pushToNewRelic(payload) {
+  if (!NR_LICENSE_KEY) return;
+  fetch("https://log-api.newrelic.com/log/v1", {
+    method:  "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-License-Key": NR_LICENSE_KEY,
+    },
+    body: JSON.stringify([{
+      common: { attributes: { account_id: NR_ACCOUNT_ID } },
+      logs:   [{ message: payload.logtype, attributes: payload }],
+    }]),
+  }).catch(() => {}); // analytics must never break the user flow
+}
 
 // Map each page path to its experiment name + cookie name.
 const PAGE_EXPERIMENTS = {
@@ -80,18 +103,16 @@ export default async function middleware(request) {
       setCookies.push(
         `${exp.cookie}=${encodeURIComponent(variation)}; ${cookieOpts(60 * 60 * 24)}`
       );
-      // Structured log — forwarded to New Relic via Vercel Log Drain.
-      // Queryable in NR Logs: SELECT * FROM Log WHERE logtype = 'edge_flag_assignment'
-      console.log(JSON.stringify({
-        logtype:        "edge_flag_assignment",
-        feature_flag:   "react_migration_test",
-        experiment:     exp.name,
+      pushToNewRelic({
+        logtype:      "edge_flag_assignment",
+        feature_flag: "react_migration_test",
+        experiment:   exp.name,
         variation,
-        user_id:        userId,
-        is_new_user:    isNewAnonId,
-        path:           pathname,
-        timestamp:      new Date().toISOString(),
-      }));
+        user_id:      userId,
+        is_new_user:  isNewAnonId,
+        path:         pathname,
+        timestamp:    new Date().toISOString(),
+      });
     }
   }
 
