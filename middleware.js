@@ -80,6 +80,18 @@ export default async function middleware(request) {
       setCookies.push(
         `${exp.cookie}=${encodeURIComponent(variation)}; ${cookieOpts(60 * 60 * 24)}`
       );
+      // Structured log — forwarded to New Relic via Vercel Log Drain.
+      // Queryable in NR Logs: SELECT * FROM Log WHERE logtype = 'edge_flag_assignment'
+      console.log(JSON.stringify({
+        logtype:        "edge_flag_assignment",
+        feature_flag:   "react_migration_test",
+        experiment:     exp.name,
+        variation,
+        user_id:        userId,
+        is_new_user:    isNewAnonId,
+        path:           pathname,
+        timestamp:      new Date().toISOString(),
+      }));
     }
   }
 
