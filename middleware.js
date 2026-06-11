@@ -5,53 +5,44 @@ import { StatsigClient } from "@statsig/js-client";
 /**
  * Vercel Edge Middleware — Statsig Server-Side Experiment Assignment
  *
- * Uses Statsig's own JS client SDK for 100% accurate bucketing.
- * Statsig's servers decide the assignment; we just read + cookie it.
- *
- * Flow:
- *  1. If experiment cookie already exists → pass through immediately.
- *  2. Resolve user identity from existing cookies or generate a new UUID.
- *  3. Initialize Statsig SDK for this user (calls Statsig's assignment API).
- *  4. Read variation via getExperiment() — exact Statsig bucketing, no hashing.
- *  5. Set cookie before HTML is served → React reads it instantly, zero flash.
- *  6. Fire-and-forget push to New Relic Log API — no Log Drain needed.
+ * Kill switch options (fastest → slowest):
+ *  A. Env var (Vercel dashboard, instant, clears existing cookies):
+ *       KILL_SWITCH_CAREERS=true  or  KILL_SWITCH_PROFILE=true
+ *  B. Statsig gate (Statsig dashboard, ~10s, stops new assignments only):
+ *       Create gate `careers_experiment_kill_switch` → turn ON
  */
 
-const STATSIG_CLIENT_KEY  = process.env.VITE_STATSIG_CLIENT_KEY   ?? "";
-const NR_LICENSE_KEY      = process.env.NEW_RELIC_LICENSE_KEY      ?? "";
-const NR_ACCOUNT_ID       = process.env.NEW_RELIC_ACCOUNT_ID       ?? "";
-const ASSIGN_TIMEOUT_MS   = 1500; // fail-safe: if Statsig is slow, skip → control
+const STATSIG_CLIENT_KEY = process.env.VITE_STATSIG_CLIENT_KEY ?? "";
+const NR_LICENSE_KEY     = process.env.NEW_RELIC_LICENSE_KEY   ?? "";
+const NR_ACCOUNT_ID      = process.env.NEW_RELIC_ACCOUNT_ID    ?? "";
+const ASSIGN_TIMEOUT_MS  = 1500;
 
-/**
- * Push a log entry directly to New Relic Log API.
- * Fire-and-forget — never awaited so it adds zero latency to the request.
- * Works on Vercel free plan (outbound fetch, no Log Drain needed).
- */
+// Env-var kill switches — set in Vercel dashboard, take effect on next request
+// for ALL users including those who already have a variant cookie.
+const ENV_KILL_SWITCHES = {
+  careers_experiment: process.env.KILL_SWITCH_CAREERS === "true",
+  profile_experiment: process.env.KILL_SWITCH_PROFILE === "true",
+};
+
 function pushToNewRelic(payload) {
   if (!NR_LICENSE_KEY) return;
   fetch("https://log-api.newrelic.com/log/v1", {
     method:  "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-License-Key": NR_LICENSE_KEY,
-    },
+    headers: { "Content-Type": "application/json", "X-License-Key": NR_LICENSE_KEY },
     body: JSON.stringify([{
       common: { attributes: { account_id: NR_ACCOUNT_ID } },
       logs:   [{ message: payload.logtype, attributes: payload }],
     }]),
-  }).catch(() => {}); // analytics must never break the user flow
+  }).catch(() => {});
 }
 
-// Map each page path to its experiment name + cookie name.
 const PAGE_EXPERIMENTS = {
   "/app/careers": [{ name: "careers_experiment", cookie: "statsig_exp_careers" }],
   "/app/profile": [{ name: "profile_experiment", cookie: "statsig_exp_profile"  }],
 };
 
 function readCookie(header, name) {
-  const m = header.match(
-    new RegExp(`(?:^|;\\s*)${encodeURIComponent(name)}=([^;]*)`)
-  );
+  const m = header.match(new RegExp(`(?:^|;\\s*)${encodeURIComponent(name)}=([^;]*)`));
   return m ? decodeURIComponent(m[1]) : null;
 }
 
@@ -60,18 +51,37 @@ export default async function middleware(request) {
   const experiments  = PAGE_EXPERIMENTS[pathname];
   if (!experiments) return next();
 
-  const cookies = request.headers.get("cookie") || "";
-
-  // Skip entirely if all experiment cookies are already set
-  const missing = experiments.filter(e => !readCookie(cookies, e.cookie));
-  if (missing.length === 0) return next();
-
-  // No SDK key configured → fail gracefully, React defaults to "control"
-  if (!STATSIG_CLIENT_KEY) return next();
-
-  const isHttps = request.url.startsWith("https://");
+  const cookies  = request.headers.get("cookie") || "";
+  const isHttps  = request.url.startsWith("https://");
+  const clearOpt = `Path=/; Max-Age=0; SameSite=Lax${isHttps ? "; Secure" : ""}`;
   const cookieOpts = (maxAge) =>
     `Path=/; Max-Age=${maxAge}; SameSite=Lax${isHttps ? "; Secure" : ""}`;
+
+  // ── Env-var kill switch (fastest path — no Statsig call needed) ────────────
+  // Clears existing variant cookies immediately so ALL users revert to "control"
+  // on their very next request. Set KILL_SWITCH_CAREERS=true in Vercel env vars.
+  const envKilled = experiments.filter(e => ENV_KILL_SWITCHES[e.name]);
+  if (envKilled.length > 0) {
+    const cookiesToClear = envKilled.filter(e => readCookie(cookies, e.cookie));
+    envKilled.forEach(e => pushToNewRelic({
+      logtype:      "kill_switch_activated",
+      trigger:      "env_var",
+      feature_flag: e.name,
+      path:         pathname,
+      timestamp:    new Date().toISOString(),
+    }));
+    if (cookiesToClear.length > 0) {
+      const headers = new Headers();
+      cookiesToClear.forEach(e => headers.append("Set-Cookie", `${e.cookie}=; ${clearOpt}`));
+      return next({ headers });
+    }
+    return next();
+  }
+
+  // ── Normal flow: only process experiments where cookie is missing ───────────
+  const missing = experiments.filter(e => !readCookie(cookies, e.cookie));
+  if (missing.length === 0) return next();
+  if (!STATSIG_CLIENT_KEY)  return next();
 
   // ── User identity ──────────────────────────────────────────────────────────
   const realUserId  = readCookie(cookies, "prowess_user_id");
@@ -79,9 +89,8 @@ export default async function middleware(request) {
   const userId      = realUserId ?? anonUserId ?? crypto.randomUUID();
   const isNewAnonId = !realUserId && !anonUserId;
 
-  // ── Statsig SDK — exact assignment (Statsig's servers, not custom hashing) ─
+  // ── Statsig SDK assignment ─────────────────────────────────────────────────
   const statsigClient = new StatsigClient(STATSIG_CLIENT_KEY, { userID: userId });
-
   try {
     await Promise.race([
       statsigClient.initializeAsync(),
@@ -90,19 +99,18 @@ export default async function middleware(request) {
       ),
     ]);
   } catch {
-    // Statsig unreachable or too slow → no cookie set → React defaults to "control"
     return next();
   }
 
   const setCookies = [];
 
   for (const exp of missing) {
-    // Kill switch: create a gate named `{experiment}_kill_switch` in Statsig and turn it ON
-    // to immediately stop experiment assignment → React defaults to "control" with no deploy needed.
+    // Statsig gate kill switch — stops new assignments (~10s propagation)
     const isKilled = statsigClient.checkGate(`${exp.name}_kill_switch`);
     if (isKilled) {
       pushToNewRelic({
         logtype:      "kill_switch_activated",
+        trigger:      "statsig_gate",
         feature_flag: exp.name,
         path:         pathname,
         timestamp:    new Date().toISOString(),
@@ -113,9 +121,7 @@ export default async function middleware(request) {
     const experiment = statsigClient.getExperiment(exp.name);
     const variation  = experiment.get("variation", null);
     if (variation) {
-      setCookies.push(
-        `${exp.cookie}=${encodeURIComponent(variation)}; ${cookieOpts(60 * 60 * 24)}`
-      );
+      setCookies.push(`${exp.cookie}=${encodeURIComponent(variation)}; ${cookieOpts(60 * 60 * 24)}`);
       pushToNewRelic({
         logtype:      "edge_flag_assignment",
         feature_flag: exp.name,
@@ -129,20 +135,14 @@ export default async function middleware(request) {
     }
   }
 
-  // Persist anonymous ID so the same user stays in the same group on future visits
   if (isNewAnonId && setCookies.length > 0) {
-    setCookies.push(
-      `statsig_user_id=${encodeURIComponent(userId)}; ${cookieOpts(60 * 60 * 24 * 365)}`
-    );
+    setCookies.push(`statsig_user_id=${encodeURIComponent(userId)}; ${cookieOpts(60 * 60 * 24 * 365)}`);
   }
 
   if (setCookies.length === 0) return next();
 
-  // Each Set-Cookie must be a separate header — joining with "," breaks cookie parsing.
   const responseHeaders = new Headers();
-  for (const cookie of setCookies) {
-    responseHeaders.append("Set-Cookie", cookie);
-  }
+  for (const cookie of setCookies) responseHeaders.append("Set-Cookie", cookie);
   return next({ headers: responseHeaders });
 }
 

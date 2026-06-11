@@ -613,6 +613,86 @@
         }
 
       ]
+    },
+
+    {
+      "name": "Bug Triage",
+      "description": "Identify which AB test variant a specific user was in — paste user ID to trace their experiment assignment and actions",
+      "widgets": [
+
+        {
+          "title": "User Variant Lookup — paste user_id in filter bar above",
+          "layout": { "column": 1, "row": 1, "width": 6, "height": 3 },
+          "visualization": { "id": "viz.table" },
+          "rawConfiguration": {
+            "nrqlQueries": [{
+              "accountIds": [8157273],
+              "query": "SELECT timestamp, experiment, variation, path, is_new_user FROM Log WHERE logtype = 'edge_flag_assignment' SINCE 30 days ago ORDER BY timestamp DESC LIMIT 100"
+            }]
+          }
+        },
+
+        {
+          "title": "User Actions — Apply Clicks by User",
+          "layout": { "column": 7, "row": 1, "width": 6, "height": 3 },
+          "visualization": { "id": "viz.table" },
+          "rawConfiguration": {
+            "nrqlQueries": [{
+              "accountIds": [8157273],
+              "query": "SELECT timestamp, actionName, variation, variation_label, job_title, page FROM PageAction WHERE actionName IN ('experiment_assigned','apply_clicked','page_view') SINCE 30 days ago ORDER BY timestamp DESC LIMIT 100"
+            }]
+          }
+        },
+
+        {
+          "title": "All Variants Assigned (last 30 days) — find user row",
+          "layout": { "column": 1, "row": 4, "width": 6, "height": 3 },
+          "visualization": { "id": "viz.table" },
+          "rawConfiguration": {
+            "nrqlQueries": [{
+              "accountIds": [8157273],
+              "query": "SELECT latest(timestamp) AS 'Last Assigned', latest(variation) AS 'Variant', latest(path) AS 'Page', count(*) AS 'Sessions' FROM Log WHERE logtype = 'edge_flag_assignment' FACET user_id SINCE 30 days ago LIMIT 200"
+            }]
+          }
+        },
+
+        {
+          "title": "Kill Switch Events — triggered activations",
+          "layout": { "column": 7, "row": 4, "width": 6, "height": 3 },
+          "visualization": { "id": "viz.table" },
+          "rawConfiguration": {
+            "nrqlQueries": [{
+              "accountIds": [8157273],
+              "query": "SELECT timestamp, feature_flag, trigger, path FROM Log WHERE logtype = 'kill_switch_activated' SINCE 30 days ago ORDER BY timestamp DESC LIMIT 50"
+            }]
+          }
+        },
+
+        {
+          "title": "Challenger Users — all users ever assigned challenger",
+          "layout": { "column": 1, "row": 7, "width": 6, "height": 3 },
+          "visualization": { "id": "viz.table" },
+          "rawConfiguration": {
+            "nrqlQueries": [{
+              "accountIds": [8157273],
+              "query": "SELECT latest(timestamp) AS 'Last Seen', latest(path) AS 'Page' FROM Log WHERE logtype = 'edge_flag_assignment' AND variation = 'challenger' FACET user_id SINCE 30 days ago LIMIT 200"
+            }]
+          }
+        },
+
+        {
+          "title": "Control Users — all users ever assigned control",
+          "layout": { "column": 7, "row": 7, "width": 6, "height": 3 },
+          "visualization": { "id": "viz.table" },
+          "rawConfiguration": {
+            "nrqlQueries": [{
+              "accountIds": [8157273],
+              "query": "SELECT latest(timestamp) AS 'Last Seen', latest(path) AS 'Page' FROM Log WHERE logtype = 'edge_flag_assignment' AND variation = 'control' FACET user_id SINCE 30 days ago LIMIT 200"
+            }]
+          }
+        }
+
+      ]
     }
 
   ]
