@@ -94,21 +94,6 @@ export default async function middleware(request) {
     return next();
   }
 
-  // ── Feature gate evaluation log ────────────────────────────────────────────
-  // react_migration_test is the Statsig gate that controls whether a user sees
-  // the React app or the .NET app. Logging it here gives New Relic visibility
-  // into the gate state for users who reach the React side.
-  const migrationEnabled = statsigClient.checkGate("react_migration_test");
-  pushToNewRelic({
-    logtype:   "feature_flag_evaluation",
-    flag_name: "react_migration_test",
-    flag_type: "gate",
-    enabled:   migrationEnabled,
-    user_id:   userId,
-    path:      pathname,
-    timestamp: new Date().toISOString(),
-  });
-
   const setCookies = [];
 
   for (const exp of missing) {

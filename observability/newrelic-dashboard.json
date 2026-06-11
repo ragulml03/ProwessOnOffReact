@@ -294,43 +294,56 @@
 
     {
       "name": "Feature Flag — react_migration_test",
-      "description": "Statsig gate: react_migration_test — controls whether users are routed to React or .NET (data from New Relic Log API via Edge Middleware)",
+      "description": "Statsig gate: react_migration_test — state-change events pushed from .NET StatsigGateCache whenever the flag is toggled in Statsig dashboard",
       "widgets": [
 
         {
-          "title": "Total Gate Evaluations",
+          "title": "Total State Changes (30 days)",
           "layout": { "column": 1, "row": 1, "width": 3, "height": 2 },
           "visualization": { "id": "viz.billboard" },
           "rawConfiguration": {
             "nrqlQueries": [{
               "accountIds": [8157273],
-              "query": "SELECT count(*) AS 'Evaluations' FROM Log WHERE logtype = 'feature_flag_evaluation' AND flag_name = 'react_migration_test' SINCE 7 days ago"
+              "query": "SELECT count(*) AS 'State Changes' FROM Log WHERE logtype = 'feature_flag_state_change' AND flag_name = 'react_migration_test' AND trigger = 'state_change' SINCE 30 days ago"
             }],
             "thresholds": []
           }
         },
 
         {
-          "title": "Flag Enabled (React)",
+          "title": "Current State (latest)",
           "layout": { "column": 4, "row": 1, "width": 3, "height": 2 },
           "visualization": { "id": "viz.billboard" },
           "rawConfiguration": {
             "nrqlQueries": [{
               "accountIds": [8157273],
-              "query": "SELECT count(*) AS 'Flag ON' FROM Log WHERE logtype = 'feature_flag_evaluation' AND flag_name = 'react_migration_test' AND enabled = true SINCE 7 days ago"
+              "query": "SELECT latest(enabled) AS 'Flag Enabled?' FROM Log WHERE logtype = 'feature_flag_state_change' AND flag_name = 'react_migration_test' SINCE 30 days ago"
             }],
             "thresholds": []
           }
         },
 
         {
-          "title": "Flag Disabled (.NET fallback)",
+          "title": "Times Turned ON",
           "layout": { "column": 7, "row": 1, "width": 3, "height": 2 },
           "visualization": { "id": "viz.billboard" },
           "rawConfiguration": {
             "nrqlQueries": [{
               "accountIds": [8157273],
-              "query": "SELECT count(*) AS 'Flag OFF' FROM Log WHERE logtype = 'feature_flag_evaluation' AND flag_name = 'react_migration_test' AND enabled = false SINCE 7 days ago"
+              "query": "SELECT count(*) AS 'ON Events' FROM Log WHERE logtype = 'feature_flag_state_change' AND flag_name = 'react_migration_test' AND enabled = true AND trigger = 'state_change' SINCE 30 days ago"
+            }],
+            "thresholds": []
+          }
+        },
+
+        {
+          "title": "Times Turned OFF",
+          "layout": { "column": 10, "row": 1, "width": 3, "height": 2 },
+          "visualization": { "id": "viz.billboard" },
+          "rawConfiguration": {
+            "nrqlQueries": [{
+              "accountIds": [8157273],
+              "query": "SELECT count(*) AS 'OFF Events' FROM Log WHERE logtype = 'feature_flag_state_change' AND flag_name = 'react_migration_test' AND enabled = false AND trigger = 'state_change' SINCE 30 days ago"
             }],
             "thresholds": [
               { "alertSeverity": "WARNING", "value": 1 }
@@ -339,74 +352,25 @@
         },
 
         {
-          "title": "Unique Users Evaluated",
-          "layout": { "column": 10, "row": 1, "width": 3, "height": 2 },
-          "visualization": { "id": "viz.billboard" },
-          "rawConfiguration": {
-            "nrqlQueries": [{
-              "accountIds": [8157273],
-              "query": "SELECT uniqueCount(user_id) AS 'Unique Users' FROM Log WHERE logtype = 'feature_flag_evaluation' AND flag_name = 'react_migration_test' SINCE 7 days ago"
-            }],
-            "thresholds": []
-          }
-        },
-
-        {
-          "title": "Flag State Split — Enabled vs Disabled",
-          "layout": { "column": 1, "row": 3, "width": 4, "height": 3 },
-          "visualization": { "id": "viz.pie" },
-          "rawConfiguration": {
-            "nrqlQueries": [{
-              "accountIds": [8157273],
-              "query": "SELECT count(*) FROM Log WHERE logtype = 'feature_flag_evaluation' AND flag_name = 'react_migration_test' FACET enabled SINCE 7 days ago"
-            }]
-          }
-        },
-
-        {
-          "title": "Flag Evaluations by Page",
-          "layout": { "column": 5, "row": 3, "width": 4, "height": 3 },
-          "visualization": { "id": "viz.bar" },
-          "rawConfiguration": {
-            "nrqlQueries": [{
-              "accountIds": [8157273],
-              "query": "SELECT count(*) FROM Log WHERE logtype = 'feature_flag_evaluation' AND flag_name = 'react_migration_test' FACET path, enabled SINCE 7 days ago"
-            }]
-          }
-        },
-
-        {
-          "title": "Flag Last Evaluated",
-          "layout": { "column": 9, "row": 3, "width": 4, "height": 3 },
+          "title": "Flag Toggle History",
+          "layout": { "column": 1, "row": 3, "width": 8, "height": 3 },
           "visualization": { "id": "viz.table" },
           "rawConfiguration": {
             "nrqlQueries": [{
               "accountIds": [8157273],
-              "query": "SELECT latest(timestamp) AS 'Last Seen', count(*) AS 'Total (7d)' FROM Log WHERE logtype = 'feature_flag_evaluation' FACET flag_name SINCE 7 days ago"
+              "query": "SELECT timestamp, flag_name, enabled, trigger FROM Log WHERE logtype = 'feature_flag_state_change' AND flag_name = 'react_migration_test' SINCE 30 days ago LIMIT 100 ORDER BY timestamp DESC"
             }]
           }
         },
 
         {
-          "title": "Flag Evaluation Trend (7 days)",
-          "layout": { "column": 1, "row": 6, "width": 8, "height": 3 },
+          "title": "Flag State Over Time",
+          "layout": { "column": 9, "row": 3, "width": 4, "height": 3 },
           "visualization": { "id": "viz.line" },
           "rawConfiguration": {
             "nrqlQueries": [{
               "accountIds": [8157273],
-              "query": "SELECT count(*) FROM Log WHERE logtype = 'feature_flag_evaluation' AND flag_name = 'react_migration_test' FACET enabled TIMESERIES 1 hour SINCE 7 days ago"
-            }]
-          }
-        },
-
-        {
-          "title": "Evaluation Log — Raw",
-          "layout": { "column": 9, "row": 6, "width": 4, "height": 3 },
-          "visualization": { "id": "viz.table" },
-          "rawConfiguration": {
-            "nrqlQueries": [{
-              "accountIds": [8157273],
-              "query": "SELECT timestamp, flag_name, enabled, user_id, path FROM Log WHERE logtype = 'feature_flag_evaluation' SINCE 1 hour ago LIMIT 50"
+              "query": "SELECT count(*) FROM Log WHERE logtype = 'feature_flag_state_change' AND flag_name = 'react_migration_test' FACET enabled TIMESERIES 1 day SINCE 30 days ago"
             }]
           }
         }
