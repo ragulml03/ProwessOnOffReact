@@ -1,11 +1,12 @@
 {
-  "name": "OffOn — AB Test Observability",
-  "description": "Careers experiment: variation split, conversions, performance and errors",
+  "name": "OffOn — Statsig Observability",
+  "description": "Two Statsig concepts tracked separately: AB Test experiments (careers_experiment) and Feature Gate (react_migration_test)",
   "permissions": "PUBLIC_READ_WRITE",
   "pages": [
+
     {
-      "name": "Experiment Results",
-      "description": "Statsig AB test tracking via New Relic custom PageAction events",
+      "name": "AB Test — Results",
+      "description": "Statsig AB test: careers_experiment control vs challenger conversions (data from browser PageAction events)",
       "widgets": [
 
         {
@@ -91,7 +92,7 @@
           "rawConfiguration": {
             "nrqlQueries": [{
               "accountIds": [8157273],
-              "query": "SELECT count(*) FROM PageAction WHERE actionName IN ('experiment_assigned','apply_clicked') FACET actionName, variation SINCE 7 days ago"
+              "query": "SELECT filter(uniqueCount(session), WHERE actionName = 'apply_clicked') / uniqueCount(session) * 100 AS 'Conversion %' FROM PageAction WHERE actionName IN ('experiment_assigned','apply_clicked') FACET variation SINCE 7 days ago"
             }]
           }
         },
@@ -145,20 +146,8 @@
         },
 
         {
-          "title": "Conversion Rate — Control vs Challenger",
-          "layout": { "column": 7, "row": 9, "width": 6, "height": 3 },
-          "visualization": { "id": "viz.bar" },
-          "rawConfiguration": {
-            "nrqlQueries": [{
-              "accountIds": [8157273],
-              "query": "SELECT filter(uniqueCount(session), WHERE actionName = 'apply_clicked') / uniqueCount(session) * 100 AS 'Conversion %' FROM PageAction WHERE actionName IN ('experiment_assigned','apply_clicked') FACET variation SINCE 7 days ago"
-            }]
-          }
-        },
-
-        {
           "title": "Top Jobs Applied (by Variation)",
-          "layout": { "column": 1, "row": 12, "width": 6, "height": 3 },
+          "layout": { "column": 7, "row": 9, "width": 6, "height": 3 },
           "visualization": { "id": "viz.bar" },
           "rawConfiguration": {
             "nrqlQueries": [{
@@ -170,12 +159,372 @@
 
         {
           "title": "Experiment Activity — Detailed Table",
-          "layout": { "column": 7, "row": 12, "width": 6, "height": 3 },
+          "layout": { "column": 1, "row": 12, "width": 12, "height": 3 },
           "visualization": { "id": "viz.table" },
           "rawConfiguration": {
             "nrqlQueries": [{
               "accountIds": [8157273],
               "query": "SELECT count(*) AS 'Count' FROM PageAction WHERE actionName IN ('experiment_assigned','apply_clicked') FACET variation, actionName SINCE 7 days ago"
+            }]
+          }
+        }
+
+      ]
+    },
+
+    {
+      "name": "AB Test — Edge Assignments",
+      "description": "Statsig AB test assignments logged by Vercel Edge Middleware before HTML is served (data from New Relic Log API)",
+      "widgets": [
+
+        {
+          "title": "Total Edge Assignments",
+          "layout": { "column": 1, "row": 1, "width": 3, "height": 2 },
+          "visualization": { "id": "viz.billboard" },
+          "rawConfiguration": {
+            "nrqlQueries": [{
+              "accountIds": [8157273],
+              "query": "SELECT count(*) AS 'Assignments' FROM Log WHERE logtype = 'edge_flag_assignment' SINCE 7 days ago"
+            }],
+            "thresholds": []
+          }
+        },
+
+        {
+          "title": "New Users Assigned",
+          "layout": { "column": 4, "row": 1, "width": 3, "height": 2 },
+          "visualization": { "id": "viz.billboard" },
+          "rawConfiguration": {
+            "nrqlQueries": [{
+              "accountIds": [8157273],
+              "query": "SELECT count(*) AS 'New Users' FROM Log WHERE logtype = 'edge_flag_assignment' AND is_new_user = true SINCE 7 days ago"
+            }],
+            "thresholds": []
+          }
+        },
+
+        {
+          "title": "Returning Users Assigned",
+          "layout": { "column": 7, "row": 1, "width": 3, "height": 2 },
+          "visualization": { "id": "viz.billboard" },
+          "rawConfiguration": {
+            "nrqlQueries": [{
+              "accountIds": [8157273],
+              "query": "SELECT count(*) AS 'Returning' FROM Log WHERE logtype = 'edge_flag_assignment' AND is_new_user = false SINCE 7 days ago"
+            }],
+            "thresholds": []
+          }
+        },
+
+        {
+          "title": "Unique Users Assigned",
+          "layout": { "column": 10, "row": 1, "width": 3, "height": 2 },
+          "visualization": { "id": "viz.billboard" },
+          "rawConfiguration": {
+            "nrqlQueries": [{
+              "accountIds": [8157273],
+              "query": "SELECT uniqueCount(user_id) AS 'Unique Users' FROM Log WHERE logtype = 'edge_flag_assignment' SINCE 7 days ago"
+            }],
+            "thresholds": []
+          }
+        },
+
+        {
+          "title": "Variation Split — careers_experiment",
+          "layout": { "column": 1, "row": 3, "width": 4, "height": 3 },
+          "visualization": { "id": "viz.pie" },
+          "rawConfiguration": {
+            "nrqlQueries": [{
+              "accountIds": [8157273],
+              "query": "SELECT count(*) FROM Log WHERE logtype = 'edge_flag_assignment' FACET variation SINCE 7 days ago"
+            }]
+          }
+        },
+
+        {
+          "title": "New vs Returning by Variation",
+          "layout": { "column": 5, "row": 3, "width": 4, "height": 3 },
+          "visualization": { "id": "viz.bar" },
+          "rawConfiguration": {
+            "nrqlQueries": [{
+              "accountIds": [8157273],
+              "query": "SELECT count(*) FROM Log WHERE logtype = 'edge_flag_assignment' FACET variation, is_new_user SINCE 7 days ago"
+            }]
+          }
+        },
+
+        {
+          "title": "Assignment by Page",
+          "layout": { "column": 9, "row": 3, "width": 4, "height": 3 },
+          "visualization": { "id": "viz.bar" },
+          "rawConfiguration": {
+            "nrqlQueries": [{
+              "accountIds": [8157273],
+              "query": "SELECT count(*) FROM Log WHERE logtype = 'edge_flag_assignment' FACET path, variation SINCE 7 days ago"
+            }]
+          }
+        },
+
+        {
+          "title": "AB Test Assignments Over Time",
+          "layout": { "column": 1, "row": 6, "width": 8, "height": 3 },
+          "visualization": { "id": "viz.line" },
+          "rawConfiguration": {
+            "nrqlQueries": [{
+              "accountIds": [8157273],
+              "query": "SELECT count(*) FROM Log WHERE logtype = 'edge_flag_assignment' FACET variation TIMESERIES 1 hour SINCE 7 days ago"
+            }]
+          }
+        },
+
+        {
+          "title": "Assignment Log — Raw (last 1 hour)",
+          "layout": { "column": 9, "row": 6, "width": 4, "height": 3 },
+          "visualization": { "id": "viz.table" },
+          "rawConfiguration": {
+            "nrqlQueries": [{
+              "accountIds": [8157273],
+              "query": "SELECT timestamp, experiment, variation, user_id, is_new_user, path FROM Log WHERE logtype = 'edge_flag_assignment' SINCE 1 hour ago LIMIT 50"
+            }]
+          }
+        }
+
+      ]
+    },
+
+    {
+      "name": "Feature Flag — react_migration_test",
+      "description": "Statsig gate: react_migration_test — controls whether users are routed to React or .NET (data from New Relic Log API via Edge Middleware)",
+      "widgets": [
+
+        {
+          "title": "Total Gate Evaluations",
+          "layout": { "column": 1, "row": 1, "width": 3, "height": 2 },
+          "visualization": { "id": "viz.billboard" },
+          "rawConfiguration": {
+            "nrqlQueries": [{
+              "accountIds": [8157273],
+              "query": "SELECT count(*) AS 'Evaluations' FROM Log WHERE logtype = 'feature_flag_evaluation' AND flag_name = 'react_migration_test' SINCE 7 days ago"
+            }],
+            "thresholds": []
+          }
+        },
+
+        {
+          "title": "Flag Enabled (React)",
+          "layout": { "column": 4, "row": 1, "width": 3, "height": 2 },
+          "visualization": { "id": "viz.billboard" },
+          "rawConfiguration": {
+            "nrqlQueries": [{
+              "accountIds": [8157273],
+              "query": "SELECT count(*) AS 'Flag ON' FROM Log WHERE logtype = 'feature_flag_evaluation' AND flag_name = 'react_migration_test' AND enabled = true SINCE 7 days ago"
+            }],
+            "thresholds": []
+          }
+        },
+
+        {
+          "title": "Flag Disabled (.NET fallback)",
+          "layout": { "column": 7, "row": 1, "width": 3, "height": 2 },
+          "visualization": { "id": "viz.billboard" },
+          "rawConfiguration": {
+            "nrqlQueries": [{
+              "accountIds": [8157273],
+              "query": "SELECT count(*) AS 'Flag OFF' FROM Log WHERE logtype = 'feature_flag_evaluation' AND flag_name = 'react_migration_test' AND enabled = false SINCE 7 days ago"
+            }],
+            "thresholds": [
+              { "alertSeverity": "WARNING", "value": 1 }
+            ]
+          }
+        },
+
+        {
+          "title": "Unique Users Evaluated",
+          "layout": { "column": 10, "row": 1, "width": 3, "height": 2 },
+          "visualization": { "id": "viz.billboard" },
+          "rawConfiguration": {
+            "nrqlQueries": [{
+              "accountIds": [8157273],
+              "query": "SELECT uniqueCount(user_id) AS 'Unique Users' FROM Log WHERE logtype = 'feature_flag_evaluation' AND flag_name = 'react_migration_test' SINCE 7 days ago"
+            }],
+            "thresholds": []
+          }
+        },
+
+        {
+          "title": "Flag State Split — Enabled vs Disabled",
+          "layout": { "column": 1, "row": 3, "width": 4, "height": 3 },
+          "visualization": { "id": "viz.pie" },
+          "rawConfiguration": {
+            "nrqlQueries": [{
+              "accountIds": [8157273],
+              "query": "SELECT count(*) FROM Log WHERE logtype = 'feature_flag_evaluation' AND flag_name = 'react_migration_test' FACET enabled SINCE 7 days ago"
+            }]
+          }
+        },
+
+        {
+          "title": "Flag Evaluations by Page",
+          "layout": { "column": 5, "row": 3, "width": 4, "height": 3 },
+          "visualization": { "id": "viz.bar" },
+          "rawConfiguration": {
+            "nrqlQueries": [{
+              "accountIds": [8157273],
+              "query": "SELECT count(*) FROM Log WHERE logtype = 'feature_flag_evaluation' AND flag_name = 'react_migration_test' FACET path, enabled SINCE 7 days ago"
+            }]
+          }
+        },
+
+        {
+          "title": "Flag Last Evaluated",
+          "layout": { "column": 9, "row": 3, "width": 4, "height": 3 },
+          "visualization": { "id": "viz.table" },
+          "rawConfiguration": {
+            "nrqlQueries": [{
+              "accountIds": [8157273],
+              "query": "SELECT latest(timestamp) AS 'Last Seen', count(*) AS 'Total (7d)' FROM Log WHERE logtype = 'feature_flag_evaluation' FACET flag_name SINCE 7 days ago"
+            }]
+          }
+        },
+
+        {
+          "title": "Flag Evaluation Trend (7 days)",
+          "layout": { "column": 1, "row": 6, "width": 8, "height": 3 },
+          "visualization": { "id": "viz.line" },
+          "rawConfiguration": {
+            "nrqlQueries": [{
+              "accountIds": [8157273],
+              "query": "SELECT count(*) FROM Log WHERE logtype = 'feature_flag_evaluation' AND flag_name = 'react_migration_test' FACET enabled TIMESERIES 1 hour SINCE 7 days ago"
+            }]
+          }
+        },
+
+        {
+          "title": "Evaluation Log — Raw",
+          "layout": { "column": 9, "row": 6, "width": 4, "height": 3 },
+          "visualization": { "id": "viz.table" },
+          "rawConfiguration": {
+            "nrqlQueries": [{
+              "accountIds": [8157273],
+              "query": "SELECT timestamp, flag_name, enabled, user_id, path FROM Log WHERE logtype = 'feature_flag_evaluation' SINCE 1 hour ago LIMIT 50"
+            }]
+          }
+        }
+
+      ]
+    },
+
+    {
+      "name": "AB Test — Health",
+      "description": "AB test experiment staleness (5-day threshold) and kill switch tracking",
+      "widgets": [
+
+        {
+          "title": "Active Experiments (last 5 days)",
+          "layout": { "column": 1, "row": 1, "width": 3, "height": 2 },
+          "visualization": { "id": "viz.billboard" },
+          "rawConfiguration": {
+            "nrqlQueries": [{
+              "accountIds": [8157273],
+              "query": "SELECT uniqueCount(experiment) AS 'Active' FROM Log WHERE logtype = 'edge_flag_assignment' SINCE 5 days ago"
+            }],
+            "thresholds": []
+          }
+        },
+
+        {
+          "title": "Stale Experiments (silent > 5 days)",
+          "layout": { "column": 4, "row": 1, "width": 3, "height": 2 },
+          "visualization": { "id": "viz.billboard" },
+          "rawConfiguration": {
+            "nrqlQueries": [{
+              "accountIds": [8157273],
+              "query": "SELECT uniqueCount(experiment) AS 'Stale' FROM Log WHERE logtype = 'edge_flag_assignment' SINCE 30 days ago UNTIL 5 days ago"
+            }],
+            "thresholds": [
+              { "alertSeverity": "WARNING", "value": 1 }
+            ]
+          }
+        },
+
+        {
+          "title": "Assignments (last 5 days)",
+          "layout": { "column": 7, "row": 1, "width": 3, "height": 2 },
+          "visualization": { "id": "viz.billboard" },
+          "rawConfiguration": {
+            "nrqlQueries": [{
+              "accountIds": [8157273],
+              "query": "SELECT count(*) AS 'Assignments' FROM Log WHERE logtype = 'edge_flag_assignment' SINCE 5 days ago"
+            }],
+            "thresholds": []
+          }
+        },
+
+        {
+          "title": "Kill Switch Events",
+          "layout": { "column": 10, "row": 1, "width": 3, "height": 2 },
+          "visualization": { "id": "viz.billboard" },
+          "rawConfiguration": {
+            "nrqlQueries": [{
+              "accountIds": [8157273],
+              "query": "SELECT count(*) AS 'Kill Events' FROM Log WHERE logtype = 'kill_switch_activated' SINCE 30 days ago"
+            }],
+            "thresholds": [
+              { "alertSeverity": "WARNING", "value": 1 }
+            ]
+          }
+        },
+
+        {
+          "title": "Experiment Status — Last Seen",
+          "layout": { "column": 1, "row": 3, "width": 6, "height": 3 },
+          "visualization": { "id": "viz.table" },
+          "rawConfiguration": {
+            "nrqlQueries": [{
+              "accountIds": [8157273],
+              "query": "SELECT latest(timestamp) AS 'Last Seen', count(*) AS 'Total (30d)' FROM Log WHERE logtype = 'edge_flag_assignment' FACET experiment SINCE 30 days ago"
+            }]
+          }
+        },
+
+        {
+          "title": "Active vs Stale Assignments per Experiment",
+          "layout": { "column": 7, "row": 3, "width": 6, "height": 3 },
+          "visualization": { "id": "viz.bar" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [8157273],
+                "query": "SELECT count(*) AS 'Last 5 days (Active)' FROM Log WHERE logtype = 'edge_flag_assignment' FACET experiment SINCE 5 days ago"
+              },
+              {
+                "accountIds": [8157273],
+                "query": "SELECT count(*) AS 'Older 5-30 days (Stale)' FROM Log WHERE logtype = 'edge_flag_assignment' FACET experiment SINCE 30 days ago UNTIL 5 days ago"
+              }
+            ]
+          }
+        },
+
+        {
+          "title": "Experiment Activity Over Time (30 days)",
+          "layout": { "column": 1, "row": 6, "width": 8, "height": 3 },
+          "visualization": { "id": "viz.line" },
+          "rawConfiguration": {
+            "nrqlQueries": [{
+              "accountIds": [8157273],
+              "query": "SELECT count(*) FROM Log WHERE logtype = 'edge_flag_assignment' FACET experiment TIMESERIES 1 day SINCE 30 days ago"
+            }]
+          }
+        },
+
+        {
+          "title": "Kill Switch Log",
+          "layout": { "column": 9, "row": 6, "width": 4, "height": 3 },
+          "visualization": { "id": "viz.table" },
+          "rawConfiguration": {
+            "nrqlQueries": [{
+              "accountIds": [8157273],
+              "query": "SELECT timestamp, feature_flag, path FROM Log WHERE logtype = 'kill_switch_activated' SINCE 30 days ago LIMIT 50"
             }]
           }
         }
@@ -300,244 +649,7 @@
         }
 
       ]
-    },
-
-    {
-      "name": "Feature Flags",
-      "description": "Edge Middleware flag assignments pushed directly to New Relic Log API",
-      "widgets": [
-
-        {
-          "title": "Total Flag Assignments (Edge)",
-          "layout": { "column": 1, "row": 1, "width": 3, "height": 2 },
-          "visualization": { "id": "viz.billboard" },
-          "rawConfiguration": {
-            "nrqlQueries": [{
-              "accountIds": [8157273],
-              "query": "SELECT count(*) AS 'Assignments' FROM Log WHERE logtype = 'edge_flag_assignment' SINCE 7 days ago"
-            }],
-            "thresholds": []
-          }
-        },
-
-        {
-          "title": "New Users Assigned",
-          "layout": { "column": 4, "row": 1, "width": 3, "height": 2 },
-          "visualization": { "id": "viz.billboard" },
-          "rawConfiguration": {
-            "nrqlQueries": [{
-              "accountIds": [8157273],
-              "query": "SELECT count(*) AS 'New Users' FROM Log WHERE logtype = 'edge_flag_assignment' AND is_new_user = true SINCE 7 days ago"
-            }],
-            "thresholds": []
-          }
-        },
-
-        {
-          "title": "Returning Users Assigned",
-          "layout": { "column": 7, "row": 1, "width": 3, "height": 2 },
-          "visualization": { "id": "viz.billboard" },
-          "rawConfiguration": {
-            "nrqlQueries": [{
-              "accountIds": [8157273],
-              "query": "SELECT count(*) AS 'Returning' FROM Log WHERE logtype = 'edge_flag_assignment' AND is_new_user = false SINCE 7 days ago"
-            }],
-            "thresholds": []
-          }
-        },
-
-        {
-          "title": "Unique Users Assigned",
-          "layout": { "column": 10, "row": 1, "width": 3, "height": 2 },
-          "visualization": { "id": "viz.billboard" },
-          "rawConfiguration": {
-            "nrqlQueries": [{
-              "accountIds": [8157273],
-              "query": "SELECT uniqueCount(user_id) AS 'Unique Users' FROM Log WHERE logtype = 'edge_flag_assignment' SINCE 7 days ago"
-            }],
-            "thresholds": []
-          }
-        },
-
-        {
-          "title": "Variation Split — Edge Assigned",
-          "layout": { "column": 1, "row": 3, "width": 4, "height": 3 },
-          "visualization": { "id": "viz.pie" },
-          "rawConfiguration": {
-            "nrqlQueries": [{
-              "accountIds": [8157273],
-              "query": "SELECT count(*) FROM Log WHERE logtype = 'edge_flag_assignment' FACET variation SINCE 7 days ago"
-            }]
-          }
-        },
-
-        {
-          "title": "New vs Returning by Variation",
-          "layout": { "column": 5, "row": 3, "width": 4, "height": 3 },
-          "visualization": { "id": "viz.bar" },
-          "rawConfiguration": {
-            "nrqlQueries": [{
-              "accountIds": [8157273],
-              "query": "SELECT count(*) FROM Log WHERE logtype = 'edge_flag_assignment' FACET variation, is_new_user SINCE 7 days ago"
-            }]
-          }
-        },
-
-        {
-          "title": "Assignment by Page",
-          "layout": { "column": 9, "row": 3, "width": 4, "height": 3 },
-          "visualization": { "id": "viz.bar" },
-          "rawConfiguration": {
-            "nrqlQueries": [{
-              "accountIds": [8157273],
-              "query": "SELECT count(*) FROM Log WHERE logtype = 'edge_flag_assignment' FACET path, variation SINCE 7 days ago"
-            }]
-          }
-        },
-
-        {
-          "title": "Flag Assignments Over Time",
-          "layout": { "column": 1, "row": 6, "width": 8, "height": 3 },
-          "visualization": { "id": "viz.line" },
-          "rawConfiguration": {
-            "nrqlQueries": [{
-              "accountIds": [8157273],
-              "query": "SELECT count(*) FROM Log WHERE logtype = 'edge_flag_assignment' FACET variation TIMESERIES 1 hour SINCE 7 days ago"
-            }]
-          }
-        },
-
-        {
-          "title": "Assignment Log — Raw",
-          "layout": { "column": 9, "row": 6, "width": 4, "height": 3 },
-          "visualization": { "id": "viz.table" },
-          "rawConfiguration": {
-            "nrqlQueries": [{
-              "accountIds": [8157273],
-              "query": "SELECT timestamp, variation, user_id, is_new_user, path FROM Log WHERE logtype = 'edge_flag_assignment' SINCE 1 hour ago LIMIT 50"
-            }]
-          }
-        }
-
-      ]
-    },
-
-    {
-      "name": "Flag Health",
-      "description": "Flag staleness (5-day threshold), usage trends and kill switch events",
-      "widgets": [
-
-        {
-          "title": "Active Flags (last 5 days)",
-          "layout": { "column": 1, "row": 1, "width": 3, "height": 2 },
-          "visualization": { "id": "viz.billboard" },
-          "rawConfiguration": {
-            "nrqlQueries": [{
-              "accountIds": [8157273],
-              "query": "SELECT uniqueCount(feature_flag) AS 'Active Flags' FROM Log WHERE logtype = 'edge_flag_assignment' SINCE 5 days ago"
-            }],
-            "thresholds": []
-          }
-        },
-
-        {
-          "title": "Stale Flags (silent > 5 days)",
-          "layout": { "column": 4, "row": 1, "width": 3, "height": 2 },
-          "visualization": { "id": "viz.billboard" },
-          "rawConfiguration": {
-            "nrqlQueries": [{
-              "accountIds": [8157273],
-              "query": "SELECT uniqueCount(feature_flag) AS 'Stale Flags' FROM Log WHERE logtype = 'edge_flag_assignment' SINCE 30 days ago UNTIL 5 days ago"
-            }],
-            "thresholds": [
-              { "alertSeverity": "WARNING", "value": 1 }
-            ]
-          }
-        },
-
-        {
-          "title": "Assignments (last 5 days)",
-          "layout": { "column": 7, "row": 1, "width": 3, "height": 2 },
-          "visualization": { "id": "viz.billboard" },
-          "rawConfiguration": {
-            "nrqlQueries": [{
-              "accountIds": [8157273],
-              "query": "SELECT count(*) AS 'Assignments' FROM Log WHERE logtype = 'edge_flag_assignment' SINCE 5 days ago"
-            }],
-            "thresholds": []
-          }
-        },
-
-        {
-          "title": "Kill Switch Events",
-          "layout": { "column": 10, "row": 1, "width": 3, "height": 2 },
-          "visualization": { "id": "viz.billboard" },
-          "rawConfiguration": {
-            "nrqlQueries": [{
-              "accountIds": [8157273],
-              "query": "SELECT count(*) AS 'Kill Events' FROM Log WHERE logtype = 'kill_switch_activated' SINCE 30 days ago"
-            }],
-            "thresholds": [
-              { "alertSeverity": "WARNING", "value": 1 }
-            ]
-          }
-        },
-
-        {
-          "title": "Flag Status — Active vs Stale (last 30 days)",
-          "layout": { "column": 1, "row": 3, "width": 6, "height": 3 },
-          "visualization": { "id": "viz.table" },
-          "rawConfiguration": {
-            "nrqlQueries": [{
-              "accountIds": [8157273],
-              "query": "SELECT latest(timestamp) AS 'Last Seen', count(*) AS 'Total (30d)' FROM Log WHERE logtype = 'edge_flag_assignment' FACET feature_flag SINCE 30 days ago"
-            }]
-          }
-        },
-
-        {
-          "title": "Active vs Stale Assignments per Flag",
-          "layout": { "column": 7, "row": 3, "width": 6, "height": 3 },
-          "visualization": { "id": "viz.bar" },
-          "rawConfiguration": {
-            "nrqlQueries": [
-              {
-                "accountIds": [8157273],
-                "query": "SELECT count(*) AS 'Last 5 days (Active)' FROM Log WHERE logtype = 'edge_flag_assignment' FACET feature_flag SINCE 5 days ago"
-              },
-              {
-                "accountIds": [8157273],
-                "query": "SELECT count(*) AS 'Older 5-30 days (Stale)' FROM Log WHERE logtype = 'edge_flag_assignment' FACET feature_flag SINCE 30 days ago UNTIL 5 days ago"
-              }
-            ]
-          }
-        },
-
-        {
-          "title": "Flag Activity Over Time (30 days)",
-          "layout": { "column": 1, "row": 6, "width": 8, "height": 3 },
-          "visualization": { "id": "viz.line" },
-          "rawConfiguration": {
-            "nrqlQueries": [{
-              "accountIds": [8157273],
-              "query": "SELECT count(*) FROM Log WHERE logtype = 'edge_flag_assignment' FACET feature_flag TIMESERIES 1 day SINCE 30 days ago"
-            }]
-          }
-        },
-
-        {
-          "title": "Kill Switch Log",
-          "layout": { "column": 9, "row": 6, "width": 4, "height": 3 },
-          "visualization": { "id": "viz.table" },
-          "rawConfiguration": {
-            "nrqlQueries": [{
-              "accountIds": [8157273],
-              "query": "SELECT timestamp, feature_flag, path FROM Log WHERE logtype = 'kill_switch_activated' SINCE 30 days ago LIMIT 50"
-            }]
-          }
-        }
-
-      ]
     }
+
   ]
 }
