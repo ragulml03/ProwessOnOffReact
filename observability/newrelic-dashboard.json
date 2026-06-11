@@ -380,30 +380,30 @@
 
     {
       "name": "AB Test — Health",
-      "description": "AB test experiment staleness (5-day threshold) and kill switch tracking",
+      "description": "AB test experiment staleness (1-hour threshold) and kill switch tracking",
       "widgets": [
 
         {
-          "title": "Active Experiments (last 5 days)",
+          "title": "Active Experiments (last 1 hour)",
           "layout": { "column": 1, "row": 1, "width": 3, "height": 2 },
           "visualization": { "id": "viz.billboard" },
           "rawConfiguration": {
             "nrqlQueries": [{
               "accountIds": [8157273],
-              "query": "SELECT uniqueCount(experiment) AS 'Active' FROM Log WHERE logtype = 'edge_flag_assignment' SINCE 5 days ago"
+              "query": "SELECT uniqueCount(experiment) AS 'Active' FROM Log WHERE logtype = 'edge_flag_assignment' SINCE 1 hour ago"
             }],
             "thresholds": []
           }
         },
 
         {
-          "title": "Stale Experiments (silent > 5 days)",
+          "title": "Stale Experiments (silent > 1 hour)",
           "layout": { "column": 4, "row": 1, "width": 3, "height": 2 },
           "visualization": { "id": "viz.billboard" },
           "rawConfiguration": {
             "nrqlQueries": [{
               "accountIds": [8157273],
-              "query": "SELECT uniqueCount(experiment) AS 'Stale' FROM Log WHERE logtype = 'edge_flag_assignment' SINCE 30 days ago UNTIL 5 days ago"
+              "query": "SELECT uniqueCount(experiment) AS 'Stale' FROM Log WHERE logtype = 'edge_flag_assignment' SINCE 30 days ago UNTIL 1 hour ago"
             }],
             "thresholds": [
               { "alertSeverity": "WARNING", "value": 1 }
@@ -412,13 +412,13 @@
         },
 
         {
-          "title": "Assignments (last 5 days)",
+          "title": "Assignments (last 1 hour)",
           "layout": { "column": 7, "row": 1, "width": 3, "height": 2 },
           "visualization": { "id": "viz.billboard" },
           "rawConfiguration": {
             "nrqlQueries": [{
               "accountIds": [8157273],
-              "query": "SELECT count(*) AS 'Assignments' FROM Log WHERE logtype = 'edge_flag_assignment' SINCE 5 days ago"
+              "query": "SELECT count(*) AS 'Assignments' FROM Log WHERE logtype = 'edge_flag_assignment' SINCE 1 hour ago"
             }],
             "thresholds": []
           }
@@ -459,11 +459,11 @@
             "nrqlQueries": [
               {
                 "accountIds": [8157273],
-                "query": "SELECT count(*) AS 'Last 5 days (Active)' FROM Log WHERE logtype = 'edge_flag_assignment' FACET experiment SINCE 5 days ago"
+                "query": "SELECT count(*) AS 'Last 1 hour (Active)' FROM Log WHERE logtype = 'edge_flag_assignment' FACET experiment SINCE 1 hour ago"
               },
               {
                 "accountIds": [8157273],
-                "query": "SELECT count(*) AS 'Older 5-30 days (Stale)' FROM Log WHERE logtype = 'edge_flag_assignment' FACET experiment SINCE 30 days ago UNTIL 5 days ago"
+                "query": "SELECT count(*) AS 'Older than 1 hour (Stale)' FROM Log WHERE logtype = 'edge_flag_assignment' FACET experiment SINCE 30 days ago UNTIL 1 hour ago"
               }
             ]
           }
