@@ -97,6 +97,19 @@ export default async function middleware(request) {
   const setCookies = [];
 
   for (const exp of missing) {
+    // Kill switch: create a gate named `{experiment}_kill_switch` in Statsig and turn it ON
+    // to immediately stop experiment assignment → React defaults to "control" with no deploy needed.
+    const isKilled = statsigClient.checkGate(`${exp.name}_kill_switch`);
+    if (isKilled) {
+      pushToNewRelic({
+        logtype:      "kill_switch_activated",
+        feature_flag: exp.name,
+        path:         pathname,
+        timestamp:    new Date().toISOString(),
+      });
+      continue;
+    }
+
     const experiment = statsigClient.getExperiment(exp.name);
     const variation  = experiment.get("variation", null);
     if (variation) {
@@ -105,7 +118,7 @@ export default async function middleware(request) {
       );
       pushToNewRelic({
         logtype:      "edge_flag_assignment",
-        feature_flag: "react_migration_test",
+        feature_flag: exp.name,
         experiment:   exp.name,
         variation,
         user_id:      userId,

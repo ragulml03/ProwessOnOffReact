@@ -420,6 +420,124 @@
         }
 
       ]
+    },
+
+    {
+      "name": "Flag Health",
+      "description": "Flag staleness (5-day threshold), usage trends and kill switch events",
+      "widgets": [
+
+        {
+          "title": "Active Flags (last 5 days)",
+          "layout": { "column": 1, "row": 1, "width": 3, "height": 2 },
+          "visualization": { "id": "viz.billboard" },
+          "rawConfiguration": {
+            "nrqlQueries": [{
+              "accountIds": [8157273],
+              "query": "SELECT uniqueCount(feature_flag) AS 'Active Flags' FROM Log WHERE logtype = 'edge_flag_assignment' SINCE 5 days ago"
+            }],
+            "thresholds": []
+          }
+        },
+
+        {
+          "title": "Stale Flags (silent > 5 days)",
+          "layout": { "column": 4, "row": 1, "width": 3, "height": 2 },
+          "visualization": { "id": "viz.billboard" },
+          "rawConfiguration": {
+            "nrqlQueries": [{
+              "accountIds": [8157273],
+              "query": "SELECT uniqueCount(feature_flag) AS 'Stale Flags' FROM Log WHERE logtype = 'edge_flag_assignment' SINCE 30 days ago UNTIL 5 days ago"
+            }],
+            "thresholds": [
+              { "alertSeverity": "WARNING", "value": 1 }
+            ]
+          }
+        },
+
+        {
+          "title": "Assignments (last 5 days)",
+          "layout": { "column": 7, "row": 1, "width": 3, "height": 2 },
+          "visualization": { "id": "viz.billboard" },
+          "rawConfiguration": {
+            "nrqlQueries": [{
+              "accountIds": [8157273],
+              "query": "SELECT count(*) AS 'Assignments' FROM Log WHERE logtype = 'edge_flag_assignment' SINCE 5 days ago"
+            }],
+            "thresholds": []
+          }
+        },
+
+        {
+          "title": "Kill Switch Events",
+          "layout": { "column": 10, "row": 1, "width": 3, "height": 2 },
+          "visualization": { "id": "viz.billboard" },
+          "rawConfiguration": {
+            "nrqlQueries": [{
+              "accountIds": [8157273],
+              "query": "SELECT count(*) AS 'Kill Events' FROM Log WHERE logtype = 'kill_switch_activated' SINCE 30 days ago"
+            }],
+            "thresholds": [
+              { "alertSeverity": "WARNING", "value": 1 }
+            ]
+          }
+        },
+
+        {
+          "title": "Flag Status — Active vs Stale (last 30 days)",
+          "layout": { "column": 1, "row": 3, "width": 6, "height": 3 },
+          "visualization": { "id": "viz.table" },
+          "rawConfiguration": {
+            "nrqlQueries": [{
+              "accountIds": [8157273],
+              "query": "SELECT latest(timestamp) AS 'Last Seen', count(*) AS 'Total (30d)' FROM Log WHERE logtype = 'edge_flag_assignment' FACET feature_flag SINCE 30 days ago"
+            }]
+          }
+        },
+
+        {
+          "title": "Active vs Stale Assignments per Flag",
+          "layout": { "column": 7, "row": 3, "width": 6, "height": 3 },
+          "visualization": { "id": "viz.bar" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [8157273],
+                "query": "SELECT count(*) AS 'Last 5 days (Active)' FROM Log WHERE logtype = 'edge_flag_assignment' FACET feature_flag SINCE 5 days ago"
+              },
+              {
+                "accountIds": [8157273],
+                "query": "SELECT count(*) AS 'Older 5-30 days (Stale)' FROM Log WHERE logtype = 'edge_flag_assignment' FACET feature_flag SINCE 30 days ago UNTIL 5 days ago"
+              }
+            ]
+          }
+        },
+
+        {
+          "title": "Flag Activity Over Time (30 days)",
+          "layout": { "column": 1, "row": 6, "width": 8, "height": 3 },
+          "visualization": { "id": "viz.line" },
+          "rawConfiguration": {
+            "nrqlQueries": [{
+              "accountIds": [8157273],
+              "query": "SELECT count(*) FROM Log WHERE logtype = 'edge_flag_assignment' FACET feature_flag TIMESERIES 1 day SINCE 30 days ago"
+            }]
+          }
+        },
+
+        {
+          "title": "Kill Switch Log",
+          "layout": { "column": 9, "row": 6, "width": 4, "height": 3 },
+          "visualization": { "id": "viz.table" },
+          "rawConfiguration": {
+            "nrqlQueries": [{
+              "accountIds": [8157273],
+              "query": "SELECT timestamp, feature_flag, path FROM Log WHERE logtype = 'kill_switch_activated' SINCE 30 days ago LIMIT 50"
+            }]
+          }
+        }
+
+      ]
     }
   ]
 }
