@@ -300,6 +300,126 @@
         }
 
       ]
+    },
+
+    {
+      "name": "Feature Flags",
+      "description": "Edge Middleware flag assignments pushed directly to New Relic Log API",
+      "widgets": [
+
+        {
+          "title": "Total Flag Assignments (Edge)",
+          "layout": { "column": 1, "row": 1, "width": 3, "height": 2 },
+          "visualization": { "id": "viz.billboard" },
+          "rawConfiguration": {
+            "nrqlQueries": [{
+              "accountIds": [8157273],
+              "query": "SELECT count(*) AS 'Assignments' FROM Log WHERE logtype = 'edge_flag_assignment' SINCE 7 days ago"
+            }],
+            "thresholds": []
+          }
+        },
+
+        {
+          "title": "New Users Assigned",
+          "layout": { "column": 4, "row": 1, "width": 3, "height": 2 },
+          "visualization": { "id": "viz.billboard" },
+          "rawConfiguration": {
+            "nrqlQueries": [{
+              "accountIds": [8157273],
+              "query": "SELECT count(*) AS 'New Users' FROM Log WHERE logtype = 'edge_flag_assignment' AND is_new_user = true SINCE 7 days ago"
+            }],
+            "thresholds": []
+          }
+        },
+
+        {
+          "title": "Returning Users Assigned",
+          "layout": { "column": 7, "row": 1, "width": 3, "height": 2 },
+          "visualization": { "id": "viz.billboard" },
+          "rawConfiguration": {
+            "nrqlQueries": [{
+              "accountIds": [8157273],
+              "query": "SELECT count(*) AS 'Returning' FROM Log WHERE logtype = 'edge_flag_assignment' AND is_new_user = false SINCE 7 days ago"
+            }],
+            "thresholds": []
+          }
+        },
+
+        {
+          "title": "Unique Users Assigned",
+          "layout": { "column": 10, "row": 1, "width": 3, "height": 2 },
+          "visualization": { "id": "viz.billboard" },
+          "rawConfiguration": {
+            "nrqlQueries": [{
+              "accountIds": [8157273],
+              "query": "SELECT uniqueCount(user_id) AS 'Unique Users' FROM Log WHERE logtype = 'edge_flag_assignment' SINCE 7 days ago"
+            }],
+            "thresholds": []
+          }
+        },
+
+        {
+          "title": "Variation Split — Edge Assigned",
+          "layout": { "column": 1, "row": 3, "width": 4, "height": 3 },
+          "visualization": { "id": "viz.pie" },
+          "rawConfiguration": {
+            "nrqlQueries": [{
+              "accountIds": [8157273],
+              "query": "SELECT count(*) FROM Log WHERE logtype = 'edge_flag_assignment' FACET variation SINCE 7 days ago"
+            }]
+          }
+        },
+
+        {
+          "title": "New vs Returning by Variation",
+          "layout": { "column": 5, "row": 3, "width": 4, "height": 3 },
+          "visualization": { "id": "viz.bar" },
+          "rawConfiguration": {
+            "nrqlQueries": [{
+              "accountIds": [8157273],
+              "query": "SELECT count(*) FROM Log WHERE logtype = 'edge_flag_assignment' FACET variation, is_new_user SINCE 7 days ago"
+            }]
+          }
+        },
+
+        {
+          "title": "Assignment by Page",
+          "layout": { "column": 9, "row": 3, "width": 4, "height": 3 },
+          "visualization": { "id": "viz.bar" },
+          "rawConfiguration": {
+            "nrqlQueries": [{
+              "accountIds": [8157273],
+              "query": "SELECT count(*) FROM Log WHERE logtype = 'edge_flag_assignment' FACET path, variation SINCE 7 days ago"
+            }]
+          }
+        },
+
+        {
+          "title": "Flag Assignments Over Time",
+          "layout": { "column": 1, "row": 6, "width": 8, "height": 3 },
+          "visualization": { "id": "viz.line" },
+          "rawConfiguration": {
+            "nrqlQueries": [{
+              "accountIds": [8157273],
+              "query": "SELECT count(*) FROM Log WHERE logtype = 'edge_flag_assignment' FACET variation TIMESERIES 1 hour SINCE 7 days ago"
+            }]
+          }
+        },
+
+        {
+          "title": "Assignment Log — Raw",
+          "layout": { "column": 9, "row": 6, "width": 4, "height": 3 },
+          "visualization": { "id": "viz.table" },
+          "rawConfiguration": {
+            "nrqlQueries": [{
+              "accountIds": [8157273],
+              "query": "SELECT timestamp, variation, user_id, is_new_user, path FROM Log WHERE logtype = 'edge_flag_assignment' SINCE 1 hour ago LIMIT 50"
+            }]
+          }
+        }
+
+      ]
     }
   ]
 }
