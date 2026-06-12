@@ -117,6 +117,25 @@ jobs:
           grep -oP '(?<="/app/)[^"]+' middleware.js | sort -u | sed 's/^/\/app\//' >> $GITHUB_STEP_SUMMARY || true
           echo '```' >> $GITHUB_STEP_SUMMARY
 
+      - name: Show kill switch status
+        env:
+          KS_CAREERS: ${{ secrets.KILL_SWITCH_CAREERS }}
+          KS_PROFILE:  ${{ secrets.KILL_SWITCH_PROFILE }}
+        run: |
+          ks_status() {
+            case "$1" in
+              true)  echo "🔴 ACTIVE — traffic blocked" ;;
+              false) echo "🟢 Off" ;;
+              *)     echo "⚪ Not set (default: off)" ;;
+            esac
+          }
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Kill switch status" >> $GITHUB_STEP_SUMMARY
+          echo "| Kill Switch | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| KILL_SWITCH_CAREERS | $(ks_status "$KS_CAREERS") |" >> $GITHUB_STEP_SUMMARY
+          echo "| KILL_SWITCH_PROFILE | $(ks_status "$KS_PROFILE") |" >> $GITHUB_STEP_SUMMARY
+
       - name: Check debug badges removed (main only)
         if: github.ref == 'refs/heads/main'
         run: |
@@ -126,19 +145,56 @@ jobs:
           fi
           echo "✅ No debug banners found." >> $GITHUB_STEP_SUMMARY
 
-  # ─── 5. Stale Flag Audit (main push only) ───────────────────────────────────
+  # ─── 5. Stale Flag Audit (every push / PR) ─────────────────────────────────
   stale-flag-check:
     name: Stale Flag Audit
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
       - uses: actions/checkout@v4
-      - name: Find Statsig experiment references
+
+      - name: Check experiment staleness via New Relic
+        env:
+          NR_ACCOUNT_ID: ${{ secrets.NEW_RELIC_ACCOUNT_ID }}
+          NR_API_KEY:    ${{ secrets.NEW_RELIC_API_KEY }}
         run: |
-          echo "=== Statsig experiments in middleware ==="
-          grep -rn "careers_experiment\|profile_experiment\|statsig_exp_" middleware.js src/ || true
-          echo "=== Statsig gate references ==="
-          grep -rn "react_migration_test\|checkGate\|getExperiment" src/ || true
+          echo "## 🕐 Stale Flag Audit" >> $GITHUB_STEP_SUMMARY
+          echo "_Threshold: no assignments in the last **1 hour** = stale_" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Experiment | Assignments (last 1h) | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|------------|----------------------|--------|" >> $GITHUB_STEP_SUMMARY
+
+          cat > /tmp/nr_check.py << 'PYEOF'
+          import json, urllib.request, os, sys
+          account_id = os.environ.get("NR_ACCOUNT_ID", "")
+          api_key    = os.environ.get("NR_API_KEY", "")
+          experiment = sys.argv[1] if len(sys.argv) > 1 else ""
+          if not account_id or not api_key:
+              print("N/A")
+              sys.exit(0)
+          nrql = "SELECT count(*) FROM Log WHERE logtype = 'edge_flag_assignment' AND experiment = '" + experiment + "' SINCE 1 hour ago"
+          gql  = '{ actor { account(id: ' + account_id + ') { nrql(query: ' + json.dumps(nrql) + ') { results } } } }'
+          payload = json.dumps({"query": gql}).encode()
+          req = urllib.request.Request("https://api.newrelic.com/graphql", data=payload,
+                headers={"Content-Type": "application/json", "API-Key": api_key})
+          try:
+              resp = urllib.request.urlopen(req, timeout=10)
+              data = json.loads(resp.read())
+              print(int(data["data"]["actor"]["account"]["nrql"]["results"][0]["count"]))
+          except Exception:
+              print("0")
+          PYEOF
+
+          for EXPERIMENT in careers_experiment profile_experiment; do
+            COUNT=$(python3 /tmp/nr_check.py "$EXPERIMENT")
+            if [ "$COUNT" = "N/A" ]; then
+              STATUS="⚪ NR secret not configured"
+            elif [ "$COUNT" -gt 0 ] 2>/dev/null; then
+              STATUS="✅ Active"
+            else
+              STATUS="⚠️ Stale (no traffic in last 1h)"
+            fi
+            echo "| \`$EXPERIMENT\` | $COUNT | $STATUS |" >> $GITHUB_STEP_SUMMARY
+          done
 
   # ─── 6. Deploy Preview ──────────────────────────────────────────────────────
   deploy-preview:
@@ -224,7 +280,7 @@ jobs:
     name: CI Summary
     runs-on: ubuntu-latest
     if: always()
-    needs: [lint, test, build, flag-review, deploy-preview, deploy-production]
+    needs: [lint, test, build, flag-review, stale-flag-check, deploy-preview, deploy-production]
     steps:
       - name: Write consolidated CI report
         run: |
@@ -256,6 +312,7 @@ jobs:
           | 🧪 Unit Tests (51 tests) | $(status "${{ needs.test.result }}") |
           | 🏗️ Build | $(status "${{ needs.build.result }}") |
           | 🚩 Flag & Middleware Review | $(status "${{ needs['flag-review'].result }}") |
+          | 🕐 Stale Flag Audit | $(status "${{ needs['stale-flag-check'].result }}") |
           | 🚀 Deploy Preview | $(status "${{ needs['deploy-preview'].result }}") |
           | 🚀 Deploy Production | $(status "${{ needs['deploy-production'].result }}") |
 
