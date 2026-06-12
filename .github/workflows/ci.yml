@@ -19,7 +19,8 @@ jobs:
           cache: npm
           cache-dependency-path: package-lock.json
       - run: npm ci --legacy-peer-deps
-      - run: npm run lint
+      - name: Run ESLint
+        run: npm run lint
 
   # ─── 2. Tests ───────────────────────────────────────────────────────────────
   test:
@@ -33,8 +34,23 @@ jobs:
           cache: npm
           cache-dependency-path: package-lock.json
       - run: npm ci --legacy-peer-deps
+
       - name: Run tests + coverage
-        run: npm run test:coverage
+        run: npm run test:coverage 2>&1 | tee /tmp/test-out.txt
+
+      - name: Write test summary
+        if: always()
+        run: |
+          echo "## 🧪 Unit Tests" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          grep -E "Test Files|Tests |Duration|passed|failed" /tmp/test-out.txt | head -8 >> $GITHUB_STEP_SUMMARY || true
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "### Coverage" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          # vitest prints a coverage table — grab everything from the header line
+          sed -n '/File.*Stmts/,/^$/p' /tmp/test-out.txt | head -30 >> $GITHUB_STEP_SUMMARY || true
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
       - name: Upload coverage report
         uses: actions/upload-artifact@v4
         with:
@@ -58,7 +74,7 @@ jobs:
       - name: Build React app
         run: npm run build
         env:
-          VITE_MIXPANEL_TOKEN:    ${{ secrets.VITE_MIXPANEL_TOKEN }}
+          VITE_MIXPANEL_TOKEN:     ${{ secrets.VITE_MIXPANEL_TOKEN }}
           VITE_STATSIG_CLIENT_KEY: ${{ secrets.VITE_STATSIG_CLIENT_KEY }}
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
@@ -67,37 +83,47 @@ jobs:
           path: dist/
           retention-days: 7
 
-  # ─── 4. Feature Flag Checklist ──────────────────────────────────────────────
+  # ─── 4. Feature Flag & Middleware Checklist ──────────────────────────────────
   flag-review:
     name: Flag Review Check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Statsig experiments registered in middleware.js
+      - name: Collect flag & middleware info
         run: |
-          echo "=== Experiments tracked in middleware (edge assignments) ==="
-          grep -oP '(?<=name: ")[^"]+' middleware.js || true
-          echo "✅ Verify these match experiment names in the Statsig dashboard"
+          echo "## 🚩 Feature Flag & Middleware Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
 
-      - name: Check experiment cookie names follow convention
-        run: |
-          echo "=== Experiment cookie names ==="
-          grep -oP '(?<=cookie: ")[^"]+' middleware.js || true
+          echo "### Experiments registered in middleware.js" >> $GITHUB_STEP_SUMMARY
+          echo "| Name | Cookie |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|--------|" >> $GITHUB_STEP_SUMMARY
+          paste \
+            <(grep -oP '(?<=name: ")[^"]+' middleware.js) \
+            <(grep -oP '(?<=cookie: ")[^"]+' middleware.js) \
+            | awk -F'\t' '{print "| "$1" | "$2" |"}' >> $GITHUB_STEP_SUMMARY || \
+            echo "| (none found) | — |" >> $GITHUB_STEP_SUMMARY
 
-      - name: Check kill switch env vars are defined
-        run: |
-          echo "=== Kill switch env var references in middleware ==="
-          grep -oP 'process\.env\.\K[A-Z_]+' middleware.js | sort -u || true
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Kill switch env vars" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          grep -oP 'process\.env\.\K[A-Z_]+' middleware.js | sort -u >> $GITHUB_STEP_SUMMARY || echo "(none)"
+          echo '```' >> $GITHUB_STEP_SUMMARY
 
-      - name: Check debug badges are removed before production push
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Middleware paths handled" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          grep -oP '(?<="/app/)[^"]+' middleware.js | sort -u | sed 's/^/\/app\//' >> $GITHUB_STEP_SUMMARY || true
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Check debug badges removed (main only)
         if: github.ref == 'refs/heads/main'
         run: |
           if grep -rn "Live Experiment Variant Active" src/; then
-            echo "❌ Debug banner still present. Remove before merging to main."
+            echo "❌ Debug banner still present — remove before merging to main." >> $GITHUB_STEP_SUMMARY
             exit 1
           fi
-          echo "✅ No debug banners found."
+          echo "✅ No debug banners found." >> $GITHUB_STEP_SUMMARY
 
   # ─── 5. Stale Flag Audit (main push only) ───────────────────────────────────
   stale-flag-check:
@@ -106,14 +132,14 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
       - uses: actions/checkout@v4
-      - name: Find Statsig experiment names in code
+      - name: Find Statsig experiment references
         run: |
           echo "=== Statsig experiments in middleware ==="
           grep -rn "careers_experiment\|profile_experiment\|statsig_exp_" middleware.js src/ || true
           echo "=== Statsig gate references ==="
           grep -rn "react_migration_test\|checkGate\|getExperiment" src/ || true
 
-  # ─── 6. Deploy Preview (PR or feature branch push) ──────────────────────────
+  # ─── 6. Deploy Preview ──────────────────────────────────────────────────────
   deploy-preview:
     name: Deploy Preview (Vercel)
     needs: [lint, test, build, flag-review]
@@ -129,14 +155,19 @@ jobs:
           cache: npm
       - run: npm ci --legacy-peer-deps
       - name: Deploy preview to Vercel
-        run: npx vercel --token ${{ secrets.VERCEL_TOKEN }} --yes
+        id: preview
+        run: |
+          OUTPUT=$(npx vercel --token ${{ secrets.VERCEL_TOKEN }} --yes 2>&1)
+          DEPLOY_URL=$(echo "$OUTPUT" | grep -oP 'https://[^\s]+' | tail -1)
+          echo "deploy_url=$DEPLOY_URL" >> $GITHUB_OUTPUT
+          echo "## 🚀 Preview Deployment" >> $GITHUB_STEP_SUMMARY
+          echo "**Status:** ✅ Deployed" >> $GITHUB_STEP_SUMMARY
+          echo "**URL:** [$DEPLOY_URL]($DEPLOY_URL)" >> $GITHUB_STEP_SUMMARY
         env:
           VERCEL_ORG_ID:     ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
-  # ─── 7. Deploy Production (main or active feature branch) ───────────────────
-  # On main: requires GitHub Environment "production" approval gate.
-  # On feature/statsig-migration: deploys directly (no approval needed).
+  # ─── 7. Deploy Production ───────────────────────────────────────────────────
   deploy-production:
     name: Deploy Production (Vercel)
     needs: [lint, test, build, flag-review]
@@ -158,7 +189,15 @@ jobs:
           VITE_MIXPANEL_TOKEN:     ${{ secrets.VITE_MIXPANEL_TOKEN }}
           VITE_STATSIG_CLIENT_KEY: ${{ secrets.VITE_STATSIG_CLIENT_KEY }}
       - name: Deploy production to Vercel
-        run: npx vercel --prod --token ${{ secrets.VERCEL_TOKEN }} --yes
+        id: production
+        run: |
+          OUTPUT=$(npx vercel --prod --token ${{ secrets.VERCEL_TOKEN }} --yes 2>&1)
+          DEPLOY_URL=$(echo "$OUTPUT" | grep -oP 'https://[^\s]+' | tail -1)
+          echo "deploy_url=$DEPLOY_URL" >> $GITHUB_OUTPUT
+          echo "## 🚀 Production Deployment" >> $GITHUB_STEP_SUMMARY
+          echo "**Status:** ✅ Deployed" >> $GITHUB_STEP_SUMMARY
+          echo "**URL:** [$DEPLOY_URL]($DEPLOY_URL)" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
         env:
           VERCEL_ORG_ID:     ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
@@ -178,3 +217,59 @@ jobs:
             -d '{"text":"❌ React production deploy FAILED — ${{ github.sha }} — ${{ github.actor }}"}'
         env:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+
+  # ─── 8. CI Summary (always runs last) ───────────────────────────────────────
+  ci-summary:
+    name: CI Summary
+    runs-on: ubuntu-latest
+    if: always()
+    needs: [lint, test, build, flag-review, deploy-preview, deploy-production]
+    steps:
+      - name: Write consolidated CI report
+        run: |
+          status() {
+            case "$1" in
+              success)   echo "✅ Passed" ;;
+              failure)   echo "❌ Failed" ;;
+              skipped)   echo "⊘ Skipped" ;;
+              cancelled) echo "⊘ Cancelled" ;;
+              *)         echo "— $1" ;;
+            esac
+          }
+
+          cat >> $GITHUB_STEP_SUMMARY << SUMMARY
+          # 📋 OffOn React — CI Report
+
+          | | |
+          |---|---|
+          | **Branch** | \`${{ github.ref_name }}\` |
+          | **Commit** | \`${{ github.sha }}\` |
+          | **Triggered by** | ${{ github.actor }} |
+          | **Event** | ${{ github.event_name }} |
+
+          ## Pipeline Results
+
+          | Step | Result |
+          |------|--------|
+          | 🔍 Lint | $(status "${{ needs.lint.result }}") |
+          | 🧪 Unit Tests (51 tests) | $(status "${{ needs.test.result }}") |
+          | 🏗️ Build | $(status "${{ needs.build.result }}") |
+          | 🚩 Flag & Middleware Review | $(status "${{ needs['flag-review'].result }}") |
+          | 🚀 Deploy Preview | $(status "${{ needs['deploy-preview'].result }}") |
+          | 🚀 Deploy Production | $(status "${{ needs['deploy-production'].result }}") |
+
+          ## Coverage & Artifacts
+
+          | Artifact | Link |
+          |----------|------|
+          | 📊 Coverage Report | [Download](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}) |
+          | 📦 Build Artifact | [Download](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}) |
+
+          ## Links
+
+          | | |
+          |---|---|
+          | 🌍 Production App | [prowess-on-off-react.vercel.app](https://prowess-on-off-react.vercel.app) |
+          | 📈 New Relic Dashboard | [OffOn — Statsig Observability](https://one.newrelic.com) |
+          | 🧪 Statsig Console | [console.statsig.com](https://console.statsig.com) |
+          SUMMARY
