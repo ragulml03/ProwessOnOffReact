@@ -119,8 +119,8 @@ jobs:
     needs: [lint, test, build, flag-review]
     runs-on: ubuntu-latest
     if: >
-      github.event_name == 'pull_request' ||
-      (github.event_name == 'push' && startsWith(github.ref, 'refs/heads/feature/'))
+      (github.event_name == 'pull_request' && github.base_ref == 'main') ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/feature/statsig-migration')
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
