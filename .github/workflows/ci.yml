@@ -41,14 +41,15 @@ jobs:
       - name: Write test summary
         if: always()
         run: |
+          # Strip ANSI color/control codes before writing to step summary
+          CLEAN=$(sed $'s/\033\[[0-9;]*m//g' /tmp/test-out.txt)
           echo "## 🧪 Unit Tests" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
-          grep -E "Test Files|Tests |Duration|passed|failed" /tmp/test-out.txt | head -8 >> $GITHUB_STEP_SUMMARY || true
+          echo "$CLEAN" | grep -E "Test Files|Tests |Duration|passed|failed" | head -8 >> $GITHUB_STEP_SUMMARY || true
           echo '```' >> $GITHUB_STEP_SUMMARY
           echo "### Coverage" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
-          # vitest prints a coverage table — grab everything from the header line
-          sed -n '/File.*Stmts/,/^$/p' /tmp/test-out.txt | head -30 >> $GITHUB_STEP_SUMMARY || true
+          echo "$CLEAN" | sed -n '/File.*Stmts/,/^$/p' | head -30 >> $GITHUB_STEP_SUMMARY || true
           echo '```' >> $GITHUB_STEP_SUMMARY
 
       - name: Upload coverage report
@@ -107,7 +108,7 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Kill switch env vars" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
-          grep -oP 'process\.env\.\K[A-Z_]+' middleware.js | sort -u >> $GITHUB_STEP_SUMMARY || echo "(none)"
+          grep -oP 'process\.env\.\KKILL_SWITCH_[A-Z_]+' middleware.js | sort -u >> $GITHUB_STEP_SUMMARY || echo "(none)" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
 
           echo "" >> $GITHUB_STEP_SUMMARY
