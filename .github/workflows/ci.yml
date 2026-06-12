@@ -1,6 +1,5 @@
 name: React CI / CD
 
-# Runs on every push to main and every pull request targeting main.
 on:
   push:
     branches: [main, "feature/**"]
@@ -8,31 +7,34 @@ on:
     branches: [main]
 
 jobs:
-  # ─── 1. Quality Gate ────────────────────────────────────────────────────────
-  # Must pass before any deployment is attempted.
-  quality-gate:
-    name: Lint + Build
+  # ─── 1. Lint ────────────────────────────────────────────────────────────────
+  lint:
+    name: Lint
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js 20
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
           cache-dependency-path: package-lock.json
+      - run: npm ci --legacy-peer-deps
+      - run: npm run lint
 
-      - name: Install dependencies
-        run: npm ci --legacy-peer-deps
-
-      - name: Lint (ESLint)
-        run: npm run lint
-
+  # ─── 2. Tests ───────────────────────────────────────────────────────────────
+  test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - run: npm ci --legacy-peer-deps
       - name: Run tests + coverage
         run: npm run test:coverage
-
       - name: Upload coverage report
         uses: actions/upload-artifact@v4
         with:
@@ -40,114 +42,106 @@ jobs:
           path: coverage/
           retention-days: 7
 
-      - name: Build React app
-        run: npm run build
-        env:
-          VITE_LD_CLIENT_SIDE_ID: ${{ secrets.VITE_LD_CLIENT_SIDE_ID }}
-          VITE_MIXPANEL_TOKEN: ${{ secrets.VITE_MIXPANEL_TOKEN }}
-          VITE_STATSIG_CLIENT_KEY: ${{ secrets.VITE_STATSIG_CLIENT_KEY }}
-
-      - name: Upload build artifact
-        # Keeps the built files for 7 days — useful for rollback audit
-        uses: actions/upload-artifact@v4
-        with:
-          name: react-build-${{ github.sha }}
-          path: dist/
-          retention-days: 7
-
-  # ─── 2. Feature Flag Checklist ──────────────────────────────────────────────
-  flag-review:
-    name: Flag Review Check
+  # ─── 3. Build ───────────────────────────────────────────────────────────────
+  build:
+    name: Build
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Check every useExperiment call has trackExperimentGoal
-        run: |
-          echo "=== Statsig experiment hook usage ==="
-          grep -rn "useExperiment" src/ || true
-          echo "=== Statsig goal tracking calls ==="
-          grep -rn "trackExperimentGoal" src/ || true
-
-      - name: Check middleware.js PAGE_EXPERIMENTS matches Statsig dashboard
-        run: |
-          echo "=== Statsig experiments registered in middleware.js ==="
-          grep -oP '(?<=name: ")[^"]+' middleware.js || true
-          echo "✅ Verify these match experiment names in the Statsig dashboard"
-
-      - name: Check flag naming convention
-        run: |
-          echo "=== LaunchDarkly flag keys in use ==="
-          grep -rn "useFlags\|ldClient\.track" src/ || true
-
-      - name: Check debug badges are removed before production push
-        if: github.ref == 'refs/heads/main'
-        run: |
-          # Fail if any debug banner is left in production code
-          if grep -rn "Live Experiment Variant Active" src/; then
-            echo "❌ Debug banner still present. Remove before merging to main."
-            exit 1
-          fi
-          echo "✅ No debug banners found."
-
-  # ─── 3. Stale Flag Check (runs weekly on Mondays) ───────────────────────────
-  stale-flag-check:
-    name: Stale Flag Audit
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Find Statsig experiment names in code
-        run: |
-          echo "=== Active Statsig experiment names ==="
-          grep -rn "statsig_exp_\|careers_experiment\|profile_experiment" src/ middleware.js || true
-
-      - name: Check LaunchDarkly flag age via API
-        run: |
-          # Lists flags not modified in the last 90 days
-          # Requires LD_API_KEY secret in GitHub repo settings
-          if [ -n "${{ secrets.LD_API_KEY }}" ]; then
-            CUTOFF=$(date -d '-90 days' +%s%3N 2>/dev/null || date -v-90d +%s000)
-            curl -sf -H "Authorization: ${{ secrets.LD_API_KEY }}" \
-              "https://app.launchdarkly.com/api/v2/flags/default" \
-              | jq --argjson cutoff "$CUTOFF" \
-                '[.items[] | select(.creationDate < $cutoff) | {key, creationDate}]'
-          else
-            echo "LD_API_KEY secret not set — skipping LD stale flag check."
-          fi
-
-  # ─── 4. Deploy Preview to Vercel (on Pull Request or feature/statsig-migration push) ──
-  deploy-preview:
-    name: Deploy Preview (Vercel)
-    needs: [quality-gate, flag-review]
-    runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/feature/statsig-migration')
+    needs: [lint, test]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
+          cache-dependency-path: package-lock.json
+      - run: npm ci --legacy-peer-deps
+      - name: Build React app
+        run: npm run build
+        env:
+          VITE_MIXPANEL_TOKEN:    ${{ secrets.VITE_MIXPANEL_TOKEN }}
+          VITE_STATSIG_CLIENT_KEY: ${{ secrets.VITE_STATSIG_CLIENT_KEY }}
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: react-build-${{ github.sha }}
+          path: dist/
+          retention-days: 7
 
-      - name: Install dependencies
-        run: npm ci --legacy-peer-deps
+  # ─── 4. Feature Flag Checklist ──────────────────────────────────────────────
+  flag-review:
+    name: Flag Review Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
 
+      - name: Statsig experiments registered in middleware.js
+        run: |
+          echo "=== Experiments tracked in middleware (edge assignments) ==="
+          grep -oP '(?<=name: ")[^"]+' middleware.js || true
+          echo "✅ Verify these match experiment names in the Statsig dashboard"
+
+      - name: Check experiment cookie names follow convention
+        run: |
+          echo "=== Experiment cookie names ==="
+          grep -oP '(?<=cookie: ")[^"]+' middleware.js || true
+
+      - name: Check kill switch env vars are defined
+        run: |
+          echo "=== Kill switch env var references in middleware ==="
+          grep -oP 'process\.env\.\K[A-Z_]+' middleware.js | sort -u || true
+
+      - name: Check debug badges are removed before production push
+        if: github.ref == 'refs/heads/main'
+        run: |
+          if grep -rn "Live Experiment Variant Active" src/; then
+            echo "❌ Debug banner still present. Remove before merging to main."
+            exit 1
+          fi
+          echo "✅ No debug banners found."
+
+  # ─── 5. Stale Flag Audit (main push only) ───────────────────────────────────
+  stale-flag-check:
+    name: Stale Flag Audit
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Find Statsig experiment names in code
+        run: |
+          echo "=== Statsig experiments in middleware ==="
+          grep -rn "careers_experiment\|profile_experiment\|statsig_exp_" middleware.js src/ || true
+          echo "=== Statsig gate references ==="
+          grep -rn "react_migration_test\|checkGate\|getExperiment" src/ || true
+
+  # ─── 6. Deploy Preview (PR or feature branch push) ──────────────────────────
+  deploy-preview:
+    name: Deploy Preview (Vercel)
+    needs: [lint, test, build, flag-review]
+    runs-on: ubuntu-latest
+    if: >
+      github.event_name == 'pull_request' ||
+      (github.event_name == 'push' && startsWith(github.ref, 'refs/heads/feature/'))
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci --legacy-peer-deps
       - name: Deploy preview to Vercel
         run: npx vercel --token ${{ secrets.VERCEL_TOKEN }} --yes
         env:
           VERCEL_ORG_ID:     ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
-  # ─── 5. Deploy Production to Vercel (on merge to main) ──────────────────────
-  # Uses the "production" GitHub environment which requires a named reviewer
-  # to approve before this job runs.
-  # Setup: GitHub repo → Settings → Environments → production → Required reviewers
+  # ─── 7. Deploy Production (main push only) ──────────────────────────────────
+  # Requires GitHub Environment "production" to be configured:
+  # Repo → Settings → Environments → production → Required reviewers
   deploy-production:
     name: Deploy Production (Vercel)
-    needs: [quality-gate, flag-review]
+    needs: [lint, test, build, flag-review]
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/feature/statsig-migration')
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     environment:
       name: production
       url: https://prowess-on-off-react.vercel.app
@@ -157,23 +151,17 @@ jobs:
         with:
           node-version: 20
           cache: npm
-
-      - name: Install dependencies
-        run: npm ci --legacy-peer-deps
-
+      - run: npm ci --legacy-peer-deps
       - name: Build for production
         run: npm run build
         env:
-          VITE_LD_CLIENT_SIDE_ID: ${{ secrets.VITE_LD_CLIENT_SIDE_ID }}
-          VITE_MIXPANEL_TOKEN: ${{ secrets.VITE_MIXPANEL_TOKEN }}
+          VITE_MIXPANEL_TOKEN:     ${{ secrets.VITE_MIXPANEL_TOKEN }}
           VITE_STATSIG_CLIENT_KEY: ${{ secrets.VITE_STATSIG_CLIENT_KEY }}
-
       - name: Deploy production to Vercel
         run: npx vercel --prod --token ${{ secrets.VERCEL_TOKEN }} --yes
         env:
           VERCEL_ORG_ID:     ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-
       - name: Notify Slack on success
         if: success() && env.SLACK_WEBHOOK != ''
         run: |
@@ -182,7 +170,6 @@ jobs:
             -d '{"text":"✅ React deployed to production — commit ${{ github.sha }}"}'
         env:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
-
       - name: Notify Slack on failure
         if: failure() && env.SLACK_WEBHOOK != ''
         run: |
