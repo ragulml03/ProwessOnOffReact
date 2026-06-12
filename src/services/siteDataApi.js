@@ -1,4 +1,4 @@
-const fallbackSiteData = {
+export const fallbackSiteData = {
   careers: {
     pageTitle: "Build the future of feature delivery.",
     pageSubtitle:

@@ -4,43 +4,37 @@ name: Weekly Stale Flag Audit
 on:
   schedule:
     - cron: '0 9 * * 1'
-  workflow_dispatch:  # also allow manual trigger from GitHub Actions UI
+  workflow_dispatch:
 
 jobs:
   audit:
-    name: Audit LaunchDarkly + VWO Flags
+    name: Audit Statsig Experiments
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Find all flag references in React code
-        id: flags
+      - name: Find all Statsig experiment references in code
         run: |
-          echo "=== LaunchDarkly flags referenced in code ==="
-          grep -rn "useFlags\|variation\b" src/ | grep -v node_modules || true
+          echo "=== Statsig experiments in middleware.js ==="
+          grep -oP '(?<=name: ")[^"]+' middleware.js || true
 
           echo ""
-          echo "=== VWO Campaign IDs in code ==="
-          grep -rn "CAMPAIGN_ID\s*=\s*[0-9]" src/ || true
+          echo "=== Statsig experiment cookie names ==="
+          grep -oP '(?<=cookie: ")[^"]+' middleware.js || true
 
-      - name: Check LaunchDarkly for stale flags (>90 days unchanged)
-        run: |
-          if [ -z "${{ secrets.LD_API_KEY }}" ]; then
-            echo "LD_API_KEY not set — skipping."
-            exit 0
-          fi
-          CUTOFF=$(python3 -c "import time; print(int((time.time() - 90*86400)*1000))")
-          STALE=$(curl -sf -H "Authorization: ${{ secrets.LD_API_KEY }}" \
-            "https://app.launchdarkly.com/api/v2/flags/default" \
-            | jq --argjson c "$CUTOFF" '[.items[] | select(.creationDate < $c) | {key,creationDate}]')
-          echo "Stale flags: $STALE"
-          echo "STALE_FLAGS=$STALE" >> $GITHUB_ENV
+          echo ""
+          echo "=== Statsig gate references in src ==="
+          grep -rn "checkGate\|getExperiment\|useExperiment" src/ || true
 
-      - name: Post stale flag report to Slack
+          echo ""
+          echo "=== Kill switch env vars referenced ==="
+          grep -oP 'process\.env\.\KKILL_SWITCH_[A-Z_]+' middleware.js || true
+
+      - name: Post audit summary to Slack
         if: env.SLACK_WEBHOOK != ''
         run: |
           curl -X POST ${{ secrets.SLACK_WEBHOOK }} \
             -H 'Content-type: application/json' \
-            -d "{\"text\":\"📊 Weekly Flag Audit — Stale flags (>90 days): ${{ env.STALE_FLAGS }}\"}"
+            -d '{"text":"📊 Weekly Statsig Flag Audit complete — check Actions for experiment list. Remember to clean up any stale experiments in the Statsig dashboard."}'
         env:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
