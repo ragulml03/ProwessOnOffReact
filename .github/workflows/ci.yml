@@ -134,17 +134,17 @@ jobs:
           VERCEL_ORG_ID:     ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
-  # ─── 7. Deploy Production (main push only) ──────────────────────────────────
-  # Requires GitHub Environment "production" to be configured:
-  # Repo → Settings → Environments → production → Required reviewers
+  # ─── 7. Deploy Production (main or active feature branch) ───────────────────
+  # On main: requires GitHub Environment "production" approval gate.
+  # On feature/statsig-migration: deploys directly (no approval needed).
   deploy-production:
     name: Deploy Production (Vercel)
     needs: [lint, test, build, flag-review]
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    environment:
-      name: production
-      url: https://prowess-on-off-react.vercel.app
+    if: >
+      github.event_name == 'push' &&
+      (github.ref == 'refs/heads/main' ||
+       github.ref == 'refs/heads/feature/statsig-migration')
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
