@@ -117,11 +117,20 @@ jobs:
           grep -oP '(?<="/app/)[^"]+' middleware.js | sort -u | sed 's/^/\/app\//' >> $GITHUB_STEP_SUMMARY || true
           echo '```' >> $GITHUB_STEP_SUMMARY
 
-      - name: Show kill switch status
-        env:
-          KS_CAREERS: ${{ secrets.KILL_SWITCH_CAREERS }}
-          KS_PROFILE:  ${{ secrets.KILL_SWITCH_PROFILE }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci --legacy-peer-deps
+
+      - name: Show kill switch status (pulled from Vercel)
         run: |
+          # Pull current env vars from Vercel so we read the live values, not stale secrets
+          npx vercel env pull /tmp/.env.vercel --token ${{ secrets.VERCEL_TOKEN }} --yes 2>/dev/null || true
+
+          KS_CAREERS=$(grep -oP '(?<=KILL_SWITCH_CAREERS=)\S+' /tmp/.env.vercel 2>/dev/null || echo "")
+          KS_PROFILE=$(grep  -oP '(?<=KILL_SWITCH_PROFILE=)\S+'  /tmp/.env.vercel 2>/dev/null || echo "")
+
           ks_status() {
             case "$1" in
               true)  echo "🔴 ACTIVE — traffic blocked" ;;
@@ -131,10 +140,15 @@ jobs:
           }
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Kill switch status" >> $GITHUB_STEP_SUMMARY
+          echo "> Values read live from Vercel — toggle in the Vercel dashboard to take effect instantly." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Kill Switch | Status |" >> $GITHUB_STEP_SUMMARY
           echo "|-------------|--------|" >> $GITHUB_STEP_SUMMARY
           echo "| KILL_SWITCH_CAREERS | $(ks_status "$KS_CAREERS") |" >> $GITHUB_STEP_SUMMARY
           echo "| KILL_SWITCH_PROFILE | $(ks_status "$KS_PROFILE") |" >> $GITHUB_STEP_SUMMARY
+        env:
+          VERCEL_ORG_ID:     ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
       - name: Check debug badges removed (main only)
         if: github.ref == 'refs/heads/main'
